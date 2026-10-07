@@ -60,10 +60,10 @@ const icons = {
   Package,
 };
 import "./style.css";
-import { drawNetwork } from "./network";
+import { drawNetwork, drawControlNetwork } from "./network";
 import { computeMarkup, estimateCompute } from "./compute";
 import { LabScene } from "./scene";
-import { Controller, type Detection } from "./control";
+import { Controller, trackingInputs, type Detection } from "./control";
 import {
   detect,
   objectLabels,
@@ -99,7 +99,7 @@ document.querySelector("#app")!.innerHTML = `
    <article class="panel feed-panel"><div class="panel-title"><span>${icon("video")} Tracking camera</span><span class="mini">320 × 180 · <span id="camera-fps">60 FPS target</span></span></div><div class="feed-wrap"><canvas id="feed" width="640" height="360" aria-label="Simulated camera feed with learned detections"></canvas><div class="feed-corner">VIRTUAL CAMERA</div><div class="reticle"></div><div class="feed-bottom" id="feed-caption">Camera ready · awaiting start</div></div><div class="telemetry"><div><span>AZIMUTH</span><strong id="pan-value">0.0<small>°</small></strong><div class="meter"><i id="pan-meter"></i></div></div><div><span>PITCH</span><strong id="tilt-value">8.0<small>°</small></strong><div class="meter"><i id="tilt-meter"></i></div></div></div><div class="detection-info"><span id="detection-summary">No active detection</span><span class="mini" id="latency">— ms</span></div></article>
   </div>
   <div class="lower-grid"><article class="panel controls-panel"><div class="panel-title"><span>${icon("sliders-horizontal")} Tracking controls</span><button class="text-button" id="reset">Reset simulation</button></div><div class="control-grid"><div class="tracking-target"><span>Object to find</span><strong id="tracking-object-label">Drone</strong><button class="text-button" data-go="model">Change object / train</button><select id="target-object" hidden aria-label="Selected recognition object">${objectLabels.map((label) => `<option value="${label}">${label[0].toUpperCase() + label.slice(1)}</option>`).join("")}</select></div><label class="drone-setting">Drone motion<select id="path"><option value="ellipse">Orbit</option><option value="hover">Stationary</option></select></label><label class="drone-setting">Flight speed <output id="speed-out">1.0×</output><input id="speed" type="range" min="0" max="2" step=".1" value="1"></label><label>Illumination <output id="light-out">100%</output><input id="light" type="range" min=".15" max="1.3" step=".05" value="1"></label></div><div class="toggle-row"><label class="check"><input id="obstacle" type="checkbox"> Add obstruction</label><label class="check"><input id="hide-target" type="checkbox"> Hide target</label><label class="check"><input id="manual" type="checkbox"> Manual camera</label></div><div class="manual-controls" hidden><label>Azimuth <input id="manual-pan" type="range" min="-160" max="160" value="0"></label><label>Pitch <input id="manual-tilt" type="range" min="-15" max="55" value="8"></label></div></article><article class="panel error-panel"><div class="panel-title"><span>${icon("activity")} Centering error</span><span class="mini">LAST 30 S</span></div><canvas id="error-chart" width="500" height="105" aria-label="Chart of horizontal and vertical centering error"></canvas><div class="chart-legend"><span><i></i> Horizontal</span><span><i></i> Vertical</span><b id="error-value">—</b></div><div class="confidence-panel"><div><label for="confidence-meter">Detection confidence</label><output id="confidence-value">No detection</output></div><meter id="confidence-meter" min="0" max="1" value="0" aria-label="Detection confidence"></meter><p>Detector score; not calibrated real-world accuracy.</p></div></article></div>
-  <article class="panel live-network"><div class="panel-title"><span>${icon("brain-circuit")} Live recognition network</span><span class="mini">RECOGNITION → AZIMUTH / PITCH</span></div><canvas id="network-canvas" width="680" height="400" aria-label="Live recognition network feeding a feedback controller with azimuth and pitch outputs"></canvas><div class="network-readout"><strong id="network-status">Train an object in Recognition to begin.</strong><div class="network-guide"><div><b>1. See the shape</b><p>Lit cells show the object silhouette from the camera.</p></div><div><b>2. Recognise the pattern</b><p>Learned weights decide which shape details raise or lower the match score. Orange adds; grey subtracts. Thicker lines have a stronger contribution. Connections are ordered from strongest at the top to weakest at the bottom; r/c identifies the input cell’s row and column. Their order is not a camera direction.</p></div><div><b>3. Move the camera</b><p>Azimuth turns left or right. Pitch tilts up or down to centre the detected object.</p></div></div><details><summary>Show the calculation</summary><p>This is one logistic recognition unit with no hidden layers. Score = sigmoid(weighted input sum + bias). The diagram shows the twelve strongest weights; the score uses all 257 inputs. The detected box feeds a separate camera controller. Inputs and commands update at 10 Hz.</p></details></div></article>
+  <article class="panel live-network"><div class="panel-title"><span>${icon("brain-circuit")} Live recognition network</span><span class="mini">RECOGNITION → AZIMUTH / PITCH</span></div><canvas id="network-canvas" width="680" height="245" aria-label="Live recognition network feeding a feedback controller with azimuth and pitch outputs"></canvas><div class="camera-next"><h3>Next camera move</h3><p>The detected object’s position sets the two motor commands.</p><canvas id="control-network" width="680" height="205" aria-label="Horizontal and vertical error nodes weighted into azimuth and pitch commands"></canvas><p class="small-note">Movement gains are fixed controller settings. Retraining updates the shape-recognition weights above.</p><div class="camera-command-grid"><div class="camera-command"><span>AZIMUTH · LEFT / RIGHT</span><strong id="next-azimuth">Waiting for tracking</strong><p id="azimuth-input">Horizontal error → weighted turn speed</p><small>Tracking limit ±42°/s</small></div><div class="camera-command"><span>PITCH · UP / DOWN</span><strong id="next-pitch">Waiting for tracking</strong><p id="pitch-input">Vertical error → weighted tilt speed</p><small>Tracking limit ±30°/s</small></div></div></div><div class="network-readout"><strong id="network-status">Train an object in Recognition to begin.</strong><div class="network-guide"><div><b>1. See the shape</b><p>Lit cells show the object silhouette from the camera.</p></div><div><b>2. Recognise the pattern</b><p>Learned weights decide which shape details raise or lower the match score. Orange adds; grey subtracts. Thicker lines have a stronger contribution. Connections are ordered from strongest at the top to weakest at the bottom; r/c identifies the input cell’s row and column. Their order is not a camera direction.</p></div><div><b>3. Move the camera</b><p>Horizontal error is weighted into azimuth speed; vertical error is weighted into pitch speed. These fixed controller gains are shown live in the next-move cards. They are separate from the learned shape weights. Errors within 2.5% produce no correction; speed and travel limits bound movement.</p></div></div><details><summary>Show the calculation</summary><p>This is one logistic recognition unit with no hidden layers. Score = sigmoid(weighted input sum + bias). The diagram shows the twelve strongest weights; the score uses all 257 inputs. The detected box feeds a separate camera controller. Inputs and commands update at 10 Hz.</p></details><div class="weight-example"><h3>A numerical example</h3><p><b>r = row, c = column.</b> r3 c7 is row 3, column 7, counted from the top left of the 16 × 16 shape grid. A cell value of 0.75 means the silhouette fills 75% of that cell.</p><div class="table-scroll"><table><thead><tr><th>Cell</th><th>Cell value</th><th>Weight</th><th>Contribution</th></tr></thead><tbody><tr><td>r3 c7</td><td>0.75</td><td>+1.20</td><td>0.75 × 1.20 = +0.90</td></tr><tr><td>r8 c2</td><td>0.50</td><td>−0.80</td><td>0.50 × (−0.80) = −0.40</td></tr></tbody></table></div><p>Add a bias of <b>−0.20</b>: weighted sum = 0.90 − 0.40 − 0.20 = <b>0.30</b>.</p><p>Convert that sum to a score: sigmoid(0.30) = 1 / (1 + e<sup>−0.30</sup>) ≈ <b>57.4%</b>. The positive weight adds evidence for the target; the negative weight subtracts it.</p><p class="small-note">These example numbers show the calculation with two inputs. The live model uses all 257 inputs and its trained weights; its score is not calibrated real-world accuracy.</p></div></div></article>
   ${computeMarkup}
   <div class="notice"><span>${icon("flask-conical")} SYNTHETIC DEMONSTRATION</span><p>The classifier retains only the chosen rendered object. Real-camera recognition and Raspberry Pi deployment need separate validation.</p><button class="text-button" data-go="model">Inspect model</button></div>
  </section>
@@ -125,7 +125,7 @@ document.querySelector("#app")!.innerHTML = `
 <li><span class="flow-number">04</span>${icon("brain-circuit")}<h3>Learn target weights</h3><p>Compare the predicted target score with its label. Adjust weights to reduce the error, balancing target and negative examples.</p><b>180 updates · binary logistic regression</b></li>
 <li><span class="flow-number">05</span>${icon("activity")}<h3>Check held-out views</h3><p>Report accuracy, target recall and false positives on other shapes.</p><b>24 target views · 144 other views</b></li>
 <li><span class="flow-number">06</span>${icon("cpu")}<h3>Keep one object</h3><p id="diagram-target">Save only the chosen target and its weights. Replace the previous model.</p><b>257 weights + 1 bias · no other class models</b></li>
-</ol><div class="inference-flow"><span>Live camera pixels</span>${icon("chevron-right")}<span>Target score ≥ 50%</span>${icon("chevron-right")}<span>Repeated detections</span>${icon("chevron-right")}<span>Pan / tilt tracking</span></div><p class="small-note">WebGL renders the room and camera on the GPU. The CPU extracts silhouettes and scores the trained object at 10 Hz. The controller receives image boxes, not object positions from the 3D scene.</p></article><article class="panel recognition-explainer"><div class="document-heading"><h2>How recognition works</h2><p>Object detection and tracking connects a learned visual label to feedback control.</p></div><ol><li><h3>Learning from labelled views</h3><p>The browser renders 840 views across seven object types. It changes orientation and lighting, then splits the crops into 672 training examples and 168 held-out examples. The labels are known during training.</p></li><li><h3>Object detection and classification</h3><p>At runtime, the camera captures pixels. Bright connected regions propose candidate boxes. Each silhouette becomes 256 occupancy features plus its aspect ratio. The saved weights produce a score for the trained object only. Candidates need a score of at least 50% to be accepted; the other six object labels are not retained.</p></li><li><h3>Tracking through feedback control</h3><p>The controller compares the detected box centre with the image centre. That error steers azimuth and pitch within bounded speeds and travel. Repeated observations acquire a target. After loss, the camera holds briefly, searches within 25° of its last tracked bearing for up to six seconds, then resumes the wider room patrol. Drone tracking instead uses a rapid 180°/s sweep toward the other side after a brief loss hold; this is a simulation setting, not a tested motor speed.</p></li><li><h3>Repeatable testing and algorithm validation</h3><p>Flight paths, lighting, occlusion and target selection create repeatable testing conditions. Held-out accuracy tests the classifier separately from tracking and centring. Similar silhouettes can still be confused; a high synthetic score is not proof of real-camera performance.</p></li><li><h3>Moving inference to an onboard computer</h3><p>The intended onboard computer captures real frames and runs a separately trained model. Raspberry Pi deployment requires real-image data, measured latency, memory and power, and hardware validation. The compute simulator below the laboratory uses explicit assumptions, not live device measurements.</p></li></ol></article>
+</ol><div class="inference-flow"><span>Live camera pixels</span>${icon("chevron-right")}<span>Target score ≥ 50%</span>${icon("chevron-right")}<span>Repeated detections</span>${icon("chevron-right")}<span>Pan / tilt tracking</span></div><p class="small-note">WebGL renders the room and camera on the GPU. The CPU extracts silhouettes and scores the trained object at 10 Hz. The controller receives image boxes, not object positions from the 3D scene.</p></article><article class="panel recognition-explainer"><div class="document-heading"><h2>How recognition works</h2><p>Object detection and tracking connects a learned visual label to feedback control.</p></div><ol><li><h3>Where does it learn from?</h3><p>Training images come from the seven 3D objects built into this app: drone, cube, sphere, cylinder, cone, torus and pyramid. The browser renders 840 views with different orientations and lighting. It knows which object it rendered, so it can label the chosen target as 1 and every other object as 0. This training uses synthetic images, not recordings from a connected camera or images downloaded from the internet.</p><h3>How does it learn?</h3><p>Each view becomes 256 silhouette-cell values and one aspect ratio. The model multiplies those inputs by its weights, adds a bias and converts the sum into a target score. It compares that score with the known label, then adjusts the weights and bias to reduce the error over 180 passes through the training set.</p><p>For example, if a drone training view has label 1 but scores 0.30, its prediction error is 0.30 − 1 = −0.70. For a cell filled by 0.75, that example contributes −0.70 × 0.75 = −0.525 to the weight gradient. Subtracting this gradient increases that cell’s weight, making a similar view score higher. The actual update averages a balanced batch and includes regularisation.</p><p>There are 672 training views and 168 held-out validation views. Validation checks views that did not update the weights. Training another object replaces the previous model; it does not keep the old drone model. Real Raspberry Pi recognition will require labelled camera images and separate hardware testing.</p></li><li><h3>Object detection and classification</h3><p>At runtime, the camera captures pixels. Bright connected regions propose candidate boxes. Each silhouette becomes 256 occupancy features plus its aspect ratio. The saved weights produce a score for the trained object only. Candidates need a score of at least 50% to be accepted; the other six object labels are not retained.</p></li><li><h3>Tracking through feedback control</h3><p>The controller compares the detected box centre with the image centre. That error steers azimuth and pitch within bounded speeds and travel. Repeated observations acquire a target. After loss, the camera holds briefly, searches within 25° of its last tracked bearing for up to six seconds, then resumes the wider room patrol. Drone tracking instead uses a rapid 180°/s sweep toward the other side after a brief loss hold; this is a simulation setting, not a tested motor speed.</p></li><li><h3>Repeatable testing and algorithm validation</h3><p>Flight paths, lighting, occlusion and target selection create repeatable testing conditions. Held-out accuracy tests the classifier separately from tracking and centring. Similar silhouettes can still be confused; a high synthetic score is not proof of real-camera performance.</p></li><li><h3>Moving inference to an onboard computer</h3><p>The intended onboard computer captures real frames and runs a separately trained model. Raspberry Pi deployment requires real-image data, measured latency, memory and power, and hardware validation. The compute simulator below the laboratory uses explicit assumptions, not live device measurements.</p></li></ol></article>
   <article class="panel backend-panel"><div class="panel-title"><span>${icon("server")} Real-image detector</span><span class="mini">OPTIONAL LOCAL PYTHON SERVICE</span></div><div class="backend-body"><div><h3>Bring a trained YOLO model.</h3><p>The Python service accepts camera frames and returns drone boxes. Training and NCNN export scripts are included in the repository. Real-image weights are not bundled.</p></div><div class="backend-connect"><label for="backend-url">Local service address</label><div class="input-row"><input id="backend-url" value="ws://127.0.0.1:8000/ws/detect" aria-label="Local detector WebSocket address"><button id="connect-backend" class="secondary">Connect</button></div><span id="backend-status">Browser classifier selected</span></div></div></article>
   <div class="note-grid"><div><span class="note-number">DATA</span><h3>Use images of drones.</h3><p>Datasets filmed from drones often label cars and pedestrians. Verify that the drone itself is annotated before training.</p></div><div><span class="note-number">SPLITS</span><h3>Separate recordings.</h3><p>Keep complete real recordings in one split. Do not scatter adjacent video frames across training and testing.</p></div><div><span class="note-number">DEPLOY</span><h3>Measure on the Pi.</h3><p>Export a compact model to NCNN, then measure latency and recall with the actual camera before enabling motors.</p></div></div>
  </section>
@@ -307,6 +307,7 @@ frameCanvas.width = 320;
 frameCanvas.height = 180;
 const frameCtx = frameCanvas.getContext("2d")!;
 let running = false,
+  networkPaused = false,
   training = false,
   model: Model | null = null,
   last = performance.now(),
@@ -357,6 +358,7 @@ function targetReady() {
   );
 }
 function updateModel() {
+  networkPaused = false;
   const target =
     $<HTMLSelectElement>("#learning-object").selectedOptions[0].text;
   const ready = targetReady();
@@ -490,6 +492,7 @@ $("#scan-object").onclick = () => {
   $<HTMLInputElement>("#manual").checked = false;
   $<HTMLElement>(".manual-controls").hidden = true;
   running = true;
+  networkPaused = false;
   startLabel();
   showTab("lab");
 };
@@ -504,14 +507,23 @@ function startLabel() {
     icon(running ? "pause" : "scan-line") +
     (running
       ? " Pause patrol"
-      : targetReady()
-        ? ` Scan room for ${target}`
-        : " Set up recognition");
+      : networkPaused
+        ? " Resume tracking"
+        : targetReady()
+          ? ` Scan room for ${target}`
+          : " Set up recognition");
+  if (networkPaused) {
+    $("#network-status").textContent = "Paused · last recognition frame held";
+    $("#status").innerHTML = '<span class="status-dot"></span>PAUSED';
+    $("#feed-caption").textContent =
+      "Paused · recognition and camera control held";
+  }
   createIcons({ icons });
 }
 $("#start").onclick = () => {
   if (running) {
     running = false;
+    networkPaused = true;
     startLabel();
     return;
   }
@@ -519,10 +531,18 @@ $("#start").onclick = () => {
     showTab("model");
     return;
   }
+  if (networkPaused) {
+    running = true;
+    networkPaused = false;
+    lastVision = performance.now();
+    startLabel();
+    return;
+  }
   $("#scan-object").click();
 };
 $("#reset").onclick = () => {
   running = false;
+  networkPaused = false;
   controller.reset();
   lab.setTime(0);
   det = null;
@@ -793,7 +813,7 @@ function loop(now: number) {
       fpsWindow = now;
     }
   }
-  if (now - lastVision >= 100) {
+  if (!networkPaused && now - lastVision >= 100) {
     const vdt = Math.min((now - lastVision) / 1000, 0.15);
     lastVision = now;
     if (socket?.readyState === WebSocket.OPEN && running) {
@@ -862,15 +882,6 @@ function loop(now: number) {
       model,
       networkInput,
       running && det ? det.confidence : null,
-      {
-        pan: controller.pan,
-        pitch: controller.tilt,
-        azimuthRate: (controller.pan - previousPan) / Math.max(vdt, 0.001),
-        pitchRate: (controller.tilt - previousPitch) / Math.max(vdt, 0.001),
-        errorX: ex,
-        errorY: ey,
-        mode: controller.mode,
-      },
     );
     const turn =
       Math.abs(controller.pan - previousPan) < 0.02
@@ -884,6 +895,35 @@ function loop(now: number) {
         : controller.tilt > previousPitch
           ? "tilt up"
           : "tilt down";
+    const command = trackingInputs(ex ?? 0, ey ?? 0);
+    const tracking =
+      controller.mode === "TRACKING" && ex !== null && ey !== null;
+    const azimuthRate = tracking
+      ? command.azimuthRate
+      : (controller.pan - previousPan) / Math.max(vdt, 0.001);
+    const pitchRate = tracking
+      ? command.pitchRate
+      : (controller.tilt - previousPitch) / Math.max(vdt, 0.001);
+    drawControlNetwork(
+      $<HTMLCanvasElement>("#control-network"),
+      tracking ? ex : null,
+      tracking ? ey : null,
+      azimuthRate,
+      pitchRate,
+      controller.mode,
+    );
+    $("#next-azimuth").textContent = running
+      ? `${Math.abs(azimuthRate) < 0.01 ? "Hold" : azimuthRate > 0 ? "Turn right" : "Turn left"} · ${Math.abs(azimuthRate).toFixed(1)}°/s`
+      : "Waiting for tracking";
+    $("#next-pitch").textContent = running
+      ? `${Math.abs(pitchRate) < 0.01 ? "Hold" : pitchRate > 0 ? "Tilt up" : "Tilt down"} · ${Math.abs(pitchRate).toFixed(1)}°/s`
+      : "Waiting for tracking";
+    $("#azimuth-input").textContent = tracking
+      ? `${(ex * 100).toFixed(1)}% horizontal error × ${command.azimuthWeight.toFixed(1)} gain`
+      : `${controller.mode} · ${controller.pan.toFixed(1)}° azimuth`;
+    $("#pitch-input").textContent = tracking
+      ? `${(ey * 100).toFixed(1)}% vertical error × ${command.pitchWeight.toFixed(1)} gain`
+      : `${controller.mode} · ${controller.tilt.toFixed(1)}° pitch`;
     $("#network-status").textContent = !model
       ? "Train an object in Recognition to begin."
       : networkInput
@@ -932,6 +972,7 @@ if (["lab", "electronics", "model", "notebook"].includes(hash)) showTab(hash);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && running) {
     running = false;
+    networkPaused = true;
     startLabel();
   }
 });

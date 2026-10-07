@@ -6,6 +6,26 @@ export type Mode =
   "IDLE" | "SEARCHING" | "ACQUIRING" | "TRACKING" | "LOST" | "MANUAL";
 export const clamp = (x: number, a: number, b: number) =>
   Math.max(a, Math.min(b, x));
+export function trackingInputs(errorX: number, errorY: number, fov = 55) {
+  const horizontalFov =
+    (2 * Math.atan((Math.tan((fov * Math.PI) / 360) * 16) / 9) * 180) / Math.PI;
+  const azimuthWeight = horizontalFov * 2.4;
+  const pitchWeight = -fov * 2.4;
+  return {
+    azimuthWeight,
+    pitchWeight,
+    azimuthRate: clamp(
+      Math.abs(errorX) > 0.025 ? errorX * azimuthWeight : 0,
+      -42,
+      42,
+    ),
+    pitchRate: clamp(
+      Math.abs(errorY) > 0.025 ? errorY * pitchWeight : 0,
+      -30,
+      30,
+    ),
+  };
+}
 export class Controller {
   pan = 0;
   tilt = 8;
@@ -57,14 +77,9 @@ export class Controller {
       const ex = d.box[0] + d.box[2] / 2 - 0.5,
         ey = d.box[1] + d.box[3] / 2 - 0.5;
       if (this.mode === "TRACKING") {
-        const horizontalFov =
-          (2 * Math.atan((Math.tan((fov * Math.PI) / 360) * 16) / 9) * 180) /
-          Math.PI;
-        this.pan +=
-          clamp(Math.abs(ex) > 0.025 ? ex * horizontalFov * 2.4 : 0, -42, 42) *
-          dt;
-        this.tilt +=
-          clamp(Math.abs(ey) > 0.025 ? -ey * fov * 2.4 : 0, -30, 30) * dt;
+        const command = trackingInputs(ex, ey, fov);
+        this.pan += command.azimuthRate * dt;
+        this.tilt += command.pitchRate * dt;
       }
       if (this.mode === "TRACKING")
         this.lastKnown = { pan: this.pan, tilt: this.tilt };

@@ -248,17 +248,18 @@ export class LabScene {
   }
   setTime(t: number, pattern = "ellipse") {
     this.flightTime = t;
-    if (pattern === "hover") this.drone.position.set(0, 3, -3.8);
+    const height = 3 + 0.25 * Math.cos(0.8 * t);
+    if (pattern === "hover") this.drone.position.set(0, height, -3.8);
     else if (pattern === "figure8")
       this.drone.position.set(
         Math.sin(t * 0.9) * 3.8,
-        3 + Math.sin(t * 0.65) * 0.2,
+        height,
         Math.cos(t * 0.45) * 3.8,
       );
     else
       this.drone.position.set(
         Math.sin(t * 0.38) * 3.8,
-        3 + Math.sin(t * 0.52) * 0.15,
+        height,
         -Math.cos(t * 0.38) * 3.8,
       );
     this.drone.rotation.set(

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Controller } from "../src/control";
+import { Controller, trackingInputs } from "../src/control";
 import { train, score, features, bounds, detect } from "../src/vision";
 test("acquires only after repeated observations, corrects right/up error", () => {
   const c = new Controller();
@@ -211,4 +211,24 @@ test("drone loss rapidly sweeps toward the opposite side within travel limits", 
   for (let i = 0; i < 3; i++) c.update(centered, 0.1, true, false);
   assert.equal(c.mode, "TRACKING");
   assert.equal(c.fastSearching, false);
+});
+
+test("displayed camera input contributions match actual tracking commands", () => {
+  const command = trackingInputs(0.1, -0.1);
+  assert.ok(Math.abs(command.azimuthRate - 20.538) < 0.01);
+  assert.ok(Math.abs(command.pitchRate - 13.2) < 1e-10);
+  const c = new Controller();
+  const d = {
+    box: [0.55, 0.35, 0.1, 0.1] as [number, number, number, number],
+    confidence: 0.9,
+  };
+  c.update(d, 0.1, true, false);
+  c.update(d, 0.1, true, false);
+  c.update(d, 0.1, true, false);
+  assert.ok(Math.abs(c.pan - command.azimuthRate * 0.1) < 1e-10);
+  assert.ok(Math.abs(c.tilt - (8 + command.pitchRate * 0.1)) < 1e-10);
+  assert.equal(trackingInputs(0.02, -0.02).azimuthRate, 0);
+  assert.equal(trackingInputs(0.02, -0.02).pitchRate, 0);
+  assert.equal(trackingInputs(1, -1).azimuthRate, 42);
+  assert.equal(trackingInputs(1, -1).pitchRate, 30);
 });
