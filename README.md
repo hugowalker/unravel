@@ -19,6 +19,7 @@ Open the local address shown by Vite. Select **Start tracking** to render 720 la
 pnpm build
 pnpm preview
 pnpm test
+pnpm format:check
 ```
 
 The static build is in `dist`. It can run on any static web host; the default demo requires no Python server. It needs WebGL and a browser with hardware acceleration. Fonts load from Google Fonts, with local system fallbacks.
@@ -60,6 +61,7 @@ See [dataset preparation](docs/dataset-guide.md), [hardware integration](docs/ha
 
 ```sh
 pnpm test
+pnpm format:check
 python -m pip install pytest
 python -m pytest tests/test_backend.py -q
 ```

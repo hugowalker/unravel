@@ -1,4 +1,5 @@
 """Local-only, opt-in image inference. Never actuates motors."""
+
 import asyncio
 import base64
 import binascii
@@ -20,8 +21,11 @@ model_path = os.environ.get("KESTREL_MODEL")
 if model_path:
     try:
         if not Path(model_path).exists():
-            raise ValueError("Model file does not exist; automatic downloads are disabled.")
+            raise ValueError(
+                "Model file does not exist; automatic downloads are disabled."
+            )
         from ultralytics import YOLO
+
         detector = YOLO(model_path, task="detect")
         if "drone" not in [str(n).lower() for n in detector.names.values()]:
             raise ValueError("Model must contain a class named 'drone'.")
@@ -43,13 +47,18 @@ def decode_image(value: str) -> Image.Image:
             raise ValueError("Image exceeds two megapixels.")
         image.load()
         return image.convert("RGB")
-    except (binascii.Error, UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except (
+        binascii.Error,
+        UnidentifiedImageError,
+        OSError,
+        Image.DecompressionBombError,
+    ) as exc:
         raise ValueError("Invalid image.") from exc
 
 
 def predict(image: Image.Image) -> list[dict]:
     if detector is None:
-        return []
+        raise RuntimeError(load_error)
     results = detector.predict(image, imgsz=320, conf=0.35, verbose=False)[0]
     found = []
     for box in results.boxes:
@@ -57,13 +66,19 @@ def predict(image: Image.Image) -> list[dict]:
         if str(detector.names[cls]).lower() != "drone":
             continue
         x1, y1, x2, y2 = box.xyxyn[0].tolist()
-        found.append({"box": [x1, y1, x2 - x1, y2 - y1], "confidence": float(box.conf.item())})
+        found.append(
+            {"box": [x1, y1, x2 - x1, y2 - y1], "confidence": float(box.conf.item())}
+        )
     return sorted(found, key=lambda d: d["confidence"], reverse=True)
 
 
 @app.get("/health")
 def health():
-    return {"service": "kestrel", "model_ready": detector is not None, "detail": load_error}
+    return {
+        "service": "kestrel",
+        "model_ready": detector is not None,
+        "detail": load_error,
+    }
 
 
 @app.websocket("/ws/detect")
@@ -93,7 +108,7 @@ async def detect_socket(ws: WebSocket):
                     continue
                 detections = await asyncio.to_thread(predict, image)
                 await ws.send_json({"id": request_id, "detections": detections})
-            except (ValueError, TypeError, KeyError) as exc:
+            except (ValueError, TypeError, KeyError, RuntimeError) as exc:
                 await ws.send_json({"id": request_id, "error": str(exc)})
     except WebSocketDisconnect:
         pass
