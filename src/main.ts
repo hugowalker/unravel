@@ -99,7 +99,7 @@ document.querySelector("#app")!.innerHTML = `
    <article class="panel feed-panel"><div class="panel-title"><span>${icon("video")} Tracking camera</span><span class="mini">320 × 180 · <span id="camera-fps">60 FPS target</span></span></div><div class="feed-wrap"><canvas id="feed" width="640" height="360" aria-label="Simulated camera feed with learned detections"></canvas><div class="feed-corner">VIRTUAL CAMERA</div><div class="reticle"></div><div class="feed-bottom" id="feed-caption">Camera ready · awaiting start</div></div><div class="telemetry"><div><span>AZIMUTH</span><strong id="pan-value">0.0<small>°</small></strong><div class="meter"><i id="pan-meter"></i></div></div><div><span>PITCH</span><strong id="tilt-value">8.0<small>°</small></strong><div class="meter"><i id="tilt-meter"></i></div></div></div><div class="detection-info"><span id="detection-summary">No active detection</span><span class="mini" id="latency">— ms</span></div></article>
   </div>
   <div class="lower-grid"><article class="panel controls-panel"><div class="panel-title"><span>${icon("sliders-horizontal")} Tracking controls</span><button class="text-button" id="reset">Reset simulation</button></div><div class="control-grid"><div class="tracking-target"><span>Object to find</span><strong id="tracking-object-label">Drone</strong><button class="text-button" data-go="model">Change object / train</button><select id="target-object" hidden aria-label="Selected recognition object">${objectLabels.map((label) => `<option value="${label}">${label[0].toUpperCase() + label.slice(1)}</option>`).join("")}</select></div><label class="drone-setting">Drone motion<select id="path"><option value="ellipse">Orbit</option><option value="hover">Stationary</option></select></label><label class="drone-setting">Flight speed <output id="speed-out">1.0×</output><input id="speed" type="range" min="0" max="2" step=".1" value="1"></label><label>Illumination <output id="light-out">100%</output><input id="light" type="range" min=".15" max="1.3" step=".05" value="1"></label></div><div class="toggle-row"><label class="check"><input id="obstacle" type="checkbox"> Add obstruction</label><label class="check"><input id="hide-target" type="checkbox"> Hide target</label><label class="check"><input id="manual" type="checkbox"> Manual camera</label></div><div class="manual-controls" hidden><label>Azimuth <input id="manual-pan" type="range" min="-160" max="160" value="0"></label><label>Pitch <input id="manual-tilt" type="range" min="-15" max="55" value="8"></label></div></article><article class="panel error-panel"><div class="panel-title"><span>${icon("activity")} Centering error</span><span class="mini">LAST 30 S</span></div><canvas id="error-chart" width="500" height="105" aria-label="Chart of horizontal and vertical centering error"></canvas><div class="chart-legend"><span><i></i> Horizontal</span><span><i></i> Vertical</span><b id="error-value">—</b></div><div class="confidence-panel"><div><label for="confidence-meter">Detection confidence</label><output id="confidence-value">No detection</output></div><meter id="confidence-meter" min="0" max="1" value="0" aria-label="Detection confidence"></meter><p>Detector score; not calibrated real-world accuracy.</p></div></article></div>
-  <article class="panel live-network"><div class="panel-title"><span>${icon("brain-circuit")} Live recognition network</span><span class="mini">RECOGNITION → AZIMUTH / PITCH</span></div><canvas id="network-canvas" width="680" height="245" aria-label="Live recognition network feeding a feedback controller with azimuth and pitch outputs"></canvas><div class="camera-next"><h3>Next camera move</h3><p>The detected object’s position sets the two motor commands.</p><canvas id="control-network" width="680" height="205" aria-label="Horizontal and vertical error nodes weighted into azimuth and pitch commands"></canvas><p class="small-note">Movement gains are fixed controller settings. Retraining updates the shape-recognition weights above.</p><div class="camera-command-grid"><div class="camera-command"><span>AZIMUTH · LEFT / RIGHT</span><strong id="next-azimuth">Waiting for tracking</strong><p id="azimuth-input">Horizontal error → weighted turn speed</p><small>Tracking limit ±42°/s</small></div><div class="camera-command"><span>PITCH · UP / DOWN</span><strong id="next-pitch">Waiting for tracking</strong><p id="pitch-input">Vertical error → weighted tilt speed</p><small>Tracking limit ±30°/s</small></div></div></div><div class="network-readout"><strong id="network-status">Train an object in Recognition to begin.</strong><div class="network-guide"><div><b>1. See the shape</b><p>Lit cells show the object silhouette from the camera.</p></div><div><b>2. Recognise the pattern</b><p>Learned weights decide which shape details raise or lower the match score. Orange adds; grey subtracts. Thicker lines have a stronger contribution. Connections are ordered from strongest at the top to weakest at the bottom; r/c identifies the input cell’s row and column. Their order is not a camera direction.</p></div><div><b>3. Move the camera</b><p>Horizontal error is weighted into azimuth speed; vertical error is weighted into pitch speed. These fixed controller gains are shown live in the next-move cards. They are separate from the learned shape weights. Errors within 2.5% produce no correction; speed and travel limits bound movement.</p></div></div><details><summary>Show the calculation</summary><p>This is one logistic recognition unit with no hidden layers. Score = sigmoid(weighted input sum + bias). The diagram shows the twelve strongest weights; the score uses all 257 inputs. The detected box feeds a separate camera controller. Inputs and commands update at 10 Hz.</p></details><div class="weight-example"><h3>A numerical example</h3><p><b>r = row, c = column.</b> r3 c7 is row 3, column 7, counted from the top left of the 16 × 16 shape grid. A cell value of 0.75 means the silhouette fills 75% of that cell.</p><div class="table-scroll"><table><thead><tr><th>Cell</th><th>Cell value</th><th>Weight</th><th>Contribution</th></tr></thead><tbody><tr><td>r3 c7</td><td>0.75</td><td>+1.20</td><td>0.75 × 1.20 = +0.90</td></tr><tr><td>r8 c2</td><td>0.50</td><td>−0.80</td><td>0.50 × (−0.80) = −0.40</td></tr></tbody></table></div><p>Add a bias of <b>−0.20</b>: weighted sum = 0.90 − 0.40 − 0.20 = <b>0.30</b>.</p><p>Convert that sum to a score: sigmoid(0.30) = 1 / (1 + e<sup>−0.30</sup>) ≈ <b>57.4%</b>. The positive weight adds evidence for the target; the negative weight subtracts it.</p><p class="small-note">These example numbers show the calculation with two inputs. The live model uses all 257 inputs and its trained weights; its score is not calibrated real-world accuracy.</p></div></div></article>
+  <article class="panel live-network"><div class="panel-title"><span>${icon("brain-circuit")} Live recognition network</span><span class="mini">RECOGNITION → AZIMUTH / PITCH</span></div><div class="network-state"><span class="tiny-square"></span><strong id="network-status">Train an object in Recognition to begin.</strong><span>10 Hz inference</span></div><div class="network-flow"><section class="network-stage"><div class="network-stage-title"><span>01</span><h3>Recognise the object</h3></div><canvas id="network-canvas" width="500" height="245" aria-label="Live silhouette inputs and learned recognition weights"></canvas><p class="network-caption">Orange adds evidence · grey subtracts · 257 inputs</p></section><section class="network-stage"><div class="network-stage-title"><span>02</span><h3>Choose the camera movement</h3></div><canvas id="control-network" width="500" height="245" aria-label="Horizontal and vertical error nodes weighted into azimuth and pitch commands"></canvas><p class="network-caption">Fixed movement gains · 2.5% deadband · bounded speeds</p></section></div><div class="camera-command-grid"><div class="camera-command"><span>AZIMUTH</span><strong id="next-azimuth">Waiting for tracking</strong><p id="azimuth-input">Horizontal error → turn speed</p></div><div class="camera-command"><span>PITCH</span><strong id="next-pitch">Waiting for tracking</strong><p id="pitch-input">Vertical error → tilt speed</p></div></div><div class="network-readout"><details class="network-explanation"><summary>How to read the network · calculations and example</summary><div class="network-guide"><div><b>1. See the shape</b><p>Lit cells show the object silhouette from the camera.</p></div><div><b>2. Recognise the pattern</b><p>Learned weights decide which shape details raise or lower the match score. Orange adds; grey subtracts. Thicker lines have a stronger contribution. Connections are ordered from strongest at the top to weakest at the bottom; r/c identifies the input cell’s row and column. Their order is not a camera direction.</p></div><div><b>3. Move the camera</b><p>Horizontal error is weighted into azimuth speed; vertical error is weighted into pitch speed. These fixed controller gains are shown in the movement nodes. They are separate from the learned shape weights. Errors within 2.5% produce no correction; speed and travel limits bound movement.</p></div></div><details><summary>Show the calculation</summary><p>This is one logistic recognition unit with no hidden layers. Score = sigmoid(weighted input sum + bias). The diagram shows the eight strongest weights; the score uses all 257 inputs. The detected box feeds a separate camera controller. Inputs and commands update at 10 Hz.</p></details><div class="weight-example"><h3>A real trained weight</h3><p>This uses the saved model’s actual weight and the current camera silhouette. The model is trained on synthetic 3D views.</p><p id="real-weight-state">Train an object to inspect its learned weight.</p><div class="table-scroll"><table><thead><tr><th>Cell</th><th>Current value</th><th>Trained weight</th><th>Contribution</th></tr></thead><tbody><tr><td id="real-cell">—</td><td id="real-value">—</td><td id="real-weight">—</td><td id="real-contribution">—</td></tr></tbody></table></div><p id="real-sum">A detected silhouette is needed to calculate the score.</p><p id="real-score"></p><p id="real-command" class="example-command">Camera command appears during tracking.</p><p class="small-note">The selected cell has the strongest current contribution among the 256 shape cells. The complete score includes all 257 inputs and the bias. Movement gains are fixed separately.</p><details><summary>Illustrative example with round numbers</summary><h3>A numerical example</h3><p><b>r = row, c = column.</b> r3 c7 is row 3, column 7, counted from the top left of the 16 × 16 shape grid. A cell value of 0.75 means the silhouette fills 75% of that cell.</p><p><b>Where does +1.20 come from?</b> It is an illustrative number for this example, not a measured weight from the live model. Actual weights start at zero. During training, the model compares its score with the known label (1 for the chosen object, 0 for other objects), then adjusts each weight to reduce prediction error over 180 passes. A positive weight makes that cell’s filled area add to the target score; a negative weight subtracts from it. The live diagram uses the weights produced by training.</p><div class="table-scroll"><table><thead><tr><th>Cell</th><th>Cell value</th><th>Weight</th><th>Contribution</th></tr></thead><tbody><tr><td>r3 c7</td><td>0.75</td><td>+1.20</td><td>0.75 × 1.20 = +0.90</td></tr><tr><td>r8 c2</td><td>0.50</td><td>−0.80</td><td>0.50 × (−0.80) = −0.40</td></tr></tbody></table></div><p>Add a bias of <b>−0.20</b>: weighted sum = 0.90 − 0.40 − 0.20 = <b>0.30</b>.</p><p>Convert that sum to a score: sigmoid(0.30) = 1 / (1 + e<sup>−0.30</sup>) ≈ <b>57.4%</b>. The positive weight adds evidence for the target; the negative weight subtracts it.</p><h3>End result: the azimuth command</h3><p>Once three consecutive detections acquire the target, suppose its box centre is at <b>x = 0.60</b>, while the image centre is <b>x = 0.50</b>. Horizontal error = 0.60 − 0.50 = <b>+0.10</b> (10% to the right).</p><p>With the camera’s 55° vertical field of view and 16:9 image, horizontal field of view is about <b>85.6°</b>. The controller gain is 85.6 × 2.4 ≈ <b>205.4</b>.</p><p>Azimuth speed = 0.10 × 205.4 = <b>+20.5°/s</b>, within the ±42°/s tracking limit. Over a <b>0.1 s</b> control step, movement is 20.5 × 0.1 ≈ <b>+2.05°</b>.</p><p class="example-command"><b>Command: turn right at 20.5°/s.</b> Starting at 0° azimuth, move to approximately +2.05° on this step, assuming the travel limit is not reached. If the target is vertically centred, pitch holds.</p><p class="small-note">The 57.4% recognition score accepts this example as a candidate. The box position sets the turn command; confidence is not multiplied into motor speed.</p><p class="small-note">These example numbers show the calculation with two inputs. The live model uses all 257 inputs and its trained weights; its score is not calibrated real-world accuracy.</p></details></div></details></div></article>
   ${computeMarkup}
   <div class="notice"><span>${icon("flask-conical")} SYNTHETIC DEMONSTRATION</span><p>The classifier retains only the chosen rendered object. Real-camera recognition and Raspberry Pi deployment need separate validation.</p><button class="text-button" data-go="model">Inspect model</button></div>
  </section>
@@ -513,6 +513,7 @@ function startLabel() {
           ? ` Scan room for ${target}`
           : " Set up recognition");
   if (networkPaused) {
+    drawFeed();
     $("#network-status").textContent = "Paused · last recognition frame held";
     $("#status").innerHTML = '<span class="status-dot"></span>PAUSED';
     $("#feed-caption").textContent =
@@ -621,6 +622,10 @@ $("#connect-backend").onclick = () => {
     $("#connect-backend").textContent = "Disconnect";
   };
   socket.onmessage = (event) => {
+    if (networkPaused) {
+      pending = false;
+      return;
+    }
     try {
       const m = JSON.parse(event.data);
       if (m.id !== pendingId) return;
@@ -682,7 +687,7 @@ function drawFeed() {
   frameCtx.putImageData(lab.image, 0, 0);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(frameCanvas, 0, 0, 640, 360);
-  if (det && running) {
+  if (det && (running || networkPaused)) {
     const [x, y, w, h] = det.box.map((n, i) => n * (i % 2 ? 360 : 640));
     ctx.strokeStyle = "#ff9955";
     ctx.lineWidth = 2;
@@ -795,12 +800,15 @@ function loop(now: number) {
   });
   lab.occluder.visible = $<HTMLInputElement>("#obstacle").checked;
   lab.light.intensity = 2 * Number($<HTMLInputElement>("#light").value);
-  if (manual) {
+  if (manual && !networkPaused) {
     controller.pan = Number($<HTMLInputElement>("#manual-pan").value);
     controller.tilt = Number($<HTMLInputElement>("#manual-tilt").value);
   }
   // Preview runs independently of the 10 Hz recognition/control loop.
-  if (now - lastCapture >= (tab === "lab" ? 1000 / 60 - 1 : 100)) {
+  if (
+    !networkPaused &&
+    now - lastCapture >= (tab === "lab" ? 1000 / 60 - 1 : 100)
+  ) {
     lastCapture = now;
     lab.orient(controller.pan, controller.tilt);
     lab.capture();
@@ -912,6 +920,61 @@ function loop(now: number) {
       pitchRate,
       controller.mode,
     );
+    if (model) {
+      let cellIndex = 0;
+      for (let i = 1; i < 256; i++) {
+        if (
+          Math.abs(model.weights[i] * (networkInput?.[i] ?? 1)) >
+          Math.abs(model.weights[cellIndex] * (networkInput?.[cellIndex] ?? 1))
+        )
+          cellIndex = i;
+      }
+      const weight = model.weights[cellIndex];
+      $("#real-cell").textContent =
+        `r${Math.floor(cellIndex / 16) + 1} c${(cellIndex % 16) + 1}`;
+      $("#real-weight").textContent = weight.toFixed(4);
+      $("#real-weight-state").textContent =
+        `${model.targetLabel} model · actual saved weight · ${networkInput ? "current detected silhouette" : "waiting for a detection; showing the strongest saved shape weight"}`;
+      $("#real-value").textContent = networkInput
+        ? networkInput[cellIndex].toFixed(4)
+        : "—";
+      $("#real-contribution").textContent = networkInput
+        ? `${networkInput[cellIndex].toFixed(4)} × ${weight.toFixed(4)} = ${(networkInput[cellIndex] * weight).toFixed(4)}`
+        : "—";
+      if (networkInput) {
+        const contribution = networkInput[cellIndex] * weight;
+        const others = model.weights.reduce(
+          (sum, w, i) => (i === cellIndex ? sum : sum + w * networkInput[i]),
+          0,
+        );
+        const z = contribution + others + model.bias;
+        $("#real-sum").textContent =
+          `Selected cell ${contribution.toFixed(4)} + all other inputs ${others.toFixed(4)} + bias ${model.bias.toFixed(4)} = ${z.toFixed(4)} (rounded display).`;
+        $("#real-score").textContent =
+          `Actual model score: sigmoid(${z.toFixed(4)}) = ${(100 / (1 + Math.exp(-Math.max(-30, Math.min(30, z))))).toFixed(2)}%.`;
+      } else {
+        $("#real-sum").textContent =
+          "No detected silhouette: the weight is saved, but there is no current cell contribution or match score.";
+        $("#real-score").textContent = "";
+      }
+      $("#real-command").textContent = tracking
+        ? `Azimuth: ${ex!.toFixed(4)} horizontal error × ${command.azimuthWeight.toFixed(2)} gain → ${azimuthRate.toFixed(2)}°/s after deadband and speed limits. Next ${vdt.toFixed(3)} s step: ${(azimuthRate * vdt).toFixed(2)}° requested change, bounded by travel limits. Pitch: ${pitchRate.toFixed(2)}°/s.`
+        : `Camera state: ${controller.mode}. A tracking command needs three consecutive detections. Current azimuth movement: ${azimuthRate.toFixed(2)}°/s; pitch: ${pitchRate.toFixed(2)}°/s.`;
+    } else {
+      $("#real-weight-state").textContent =
+        "Train an object to inspect its learned weight.";
+      for (const id of [
+        "real-cell",
+        "real-value",
+        "real-weight",
+        "real-contribution",
+      ])
+        $("#" + id).textContent = "—";
+      $("#real-sum").textContent = "No trained weights are available.";
+      $("#real-score").textContent = "";
+      $("#real-command").textContent =
+        "Camera command appears during tracking.";
+    }
     $("#next-azimuth").textContent = running
       ? `${Math.abs(azimuthRate) < 0.01 ? "Hold" : azimuthRate > 0 ? "Turn right" : "Turn left"} · ${Math.abs(azimuthRate).toFixed(1)}°/s`
       : "Waiting for tracking";

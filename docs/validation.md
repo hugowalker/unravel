@@ -85,3 +85,11 @@ The numerical example below the live diagram shows two cell contributions and a 
 
 
 The live view now separates appearance recognition from two error/gain/motor-command node paths and next-move cards. Horizontal error drives azimuth, vertical error drives pitch; patrol/manual states are labelled separately. Pause preserves the last recognition frame, score, motor diagram and cards, and Resume tracking continues the held state. Two successive browser screenshots of the paused diagrams were byte-identical. The user also resumed tracking during verification, and the view returned to active updates.
+
+
+## Compact live view and azimuth example — 7 October 2026
+
+Recognition and camera-control graphs are arranged side by side on desktop and stacked on smaller screens. The view shows eight strongest appearance weights, a shared status line and compact movement outputs; explanations and the full example are available in an expandable section. Browser inspection confirmed the new layout and the full azimuth example: 10% horizontal error produces approximately +20.5 degrees/second, or +2.05 degrees in a 0.1-second step after acquisition. The example explicitly identifies +1.20 as illustrative; actual recognition weights start at zero and are adjusted during training.
+
+
+The default worked example now reads the actual saved model and current detected silhouette. One paused Drone observation displayed r10 c8 with input 1.0000 and trained weight 0.4684, total logit 2.7429 and score 93.95%, alongside a 9.31-degree/second azimuth command. These values are one synthetic observation, not fixed model constants. The illustrative round-number example remains collapsed beneath it. Pause also freezes camera capture and preserves the last detection box; browser inspection confirmed a paused Drone box labelled 94%.
