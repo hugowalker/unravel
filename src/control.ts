@@ -37,6 +37,7 @@ export class Controller {
   lastKnown: { pan: number; tilt: number } | null = null;
   reacquiring = false;
   fastRecovery = false;
+  centreTarget = true;
   fastSearching = false;
   limits = { pan: [-160, 160], tilt: [-15, 55] };
   reset() {
@@ -76,7 +77,7 @@ export class Controller {
       this.mode = this.hits >= 3 ? "TRACKING" : "ACQUIRING";
       const ex = d.box[0] + d.box[2] / 2 - 0.5,
         ey = d.box[1] + d.box[3] / 2 - 0.5;
-      if (this.mode === "TRACKING") {
+      if (this.mode === "TRACKING" && this.centreTarget) {
         const command = trackingInputs(ex, ey, fov);
         this.pan += command.azimuthRate * dt;
         this.tilt += command.pitchRate * dt;

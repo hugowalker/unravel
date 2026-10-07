@@ -2265,3 +2265,10 @@ h3,
   background: #211e1b;
   color: #ddd;
 }
+
+.centring-state {
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 4px 22px 16px;
+}

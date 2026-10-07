@@ -106,7 +106,7 @@ export function drawControlNetwork(
   const rows = [
     {
       y: 70,
-      label: "Horizontal error",
+      label: "Box centre Δx",
       error: errorX,
       gain: weights.azimuthWeight,
       rate: azimuthRate,
@@ -114,7 +114,7 @@ export function drawControlNetwork(
     },
     {
       y: 174,
-      label: "Vertical error",
+      label: "Box centre Δy",
       error: errorY,
       gain: weights.pitchWeight,
       rate: pitchRate,
@@ -145,7 +145,7 @@ export function drawControlNetwork(
     ctx.fillStyle = "#aaa";
     ctx.textAlign = "center";
     ctx.fillText(row.label, 60, row.y - 26);
-    ctx.fillText("Fixed gain", 240, row.y - 35);
+    ctx.fillText("Axis weight", 240, row.y - 35);
     ctx.fillText(row.axis + " command", 415, row.y - 27);
     ctx.fillStyle = "#ff9955";
     ctx.fillText(

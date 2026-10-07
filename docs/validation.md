@@ -93,3 +93,8 @@ Recognition and camera-control graphs are arranged side by side on desktop and s
 
 
 The default worked example now reads the actual saved model and current detected silhouette. One paused Drone observation displayed r10 c8 with input 1.0000 and trained weight 0.4684, total logit 2.7429 and score 93.95%, alongside a 9.31-degree/second azimuth command. These values are one synthetic observation, not fixed model constants. The illustrative round-number example remains collapsed beneath it. Pause also freezes camera capture and preserves the last detection box; browser inspection confirmed a paused Drone box labelled 94%.
+
+
+## Optional crosshair centring — 7 October 2026
+
+The live recognition panel includes a checked-by-default Centre crosshair on target option. Once a target is acquired, the box centre minus the fixed image-centre crosshair feeds the displayed azimuth and pitch weights. The camera view marks the box centre and connects it to the crosshair. Disabling centring holds both motor axes while a detection is retained; recognition remains active, and the view reports the unapplied correction. Target loss still follows the recovery/patrol routine. Manual mode overrides centring. A regression test verifies lock without movement, correction when enabled, hold when disabled again, and return to search after loss. Sixteen tests, TypeScript and production build pass. Browser inspection verified the checkbox and manual-override message.

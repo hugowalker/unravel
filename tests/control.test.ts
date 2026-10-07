@@ -232,3 +232,29 @@ test("displayed camera input contributions match actual tracking commands", () =
   assert.equal(trackingInputs(1, -1).azimuthRate, 42);
   assert.equal(trackingInputs(1, -1).pitchRate, 30);
 });
+
+test("optional centring holds a lock and resumes correction without retraining", () => {
+  const c = new Controller();
+  c.centreTarget = false;
+  const d = {
+    box: [0.55, 0.35, 0.1, 0.1] as [number, number, number, number],
+    confidence: 0.9,
+  };
+  for (let i = 0; i < 5; i++) c.update(d, 0.1, true, false);
+  assert.equal(c.mode, "TRACKING");
+  assert.equal(c.pan, 0);
+  assert.equal(c.tilt, 8);
+  c.centreTarget = true;
+  c.update(d, 0.1, true, false);
+  assert.ok(c.pan > 0);
+  assert.ok(c.tilt > 8);
+  const pan = c.pan,
+    tilt = c.tilt;
+  c.centreTarget = false;
+  c.update(d, 0.1, true, false);
+  assert.equal(c.pan, pan);
+  assert.equal(c.tilt, tilt);
+  for (let i = 0; i < 70; i++) c.update(null, 0.1, true, false);
+  assert.equal(c.mode, "SEARCHING");
+  assert.notEqual(c.pan, pan);
+});
