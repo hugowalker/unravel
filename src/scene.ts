@@ -1,12 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import {
-  bounds,
-  features,
-  maskImage,
-  trainObjects,
-  type Model,
-} from "./vision";
+import { bounds, features, maskImage, trainTarget, type Model } from "./vision";
 const rad = THREE.MathUtils.degToRad;
 const mat = (color: number, emissive = 0) =>
   new THREE.MeshStandardMaterial({
@@ -99,6 +93,11 @@ export class LabScene {
   light: THREE.DirectionalLight;
   frustum: THREE.CameraHelper;
   flightTime = 0;
+  private cameraRotation = new THREE.Matrix4();
+  private cameraAngles = new THREE.Euler(0, 0, 0, "YXZ");
+  private previousPan = NaN;
+  private previousTilt = NaN;
+  private frustumDirty = true;
   objects: THREE.Object3D[] = [];
   constructor(public container: HTMLElement) {
     this.target.texture.colorSpace = THREE.SRGBColorSpace;
@@ -191,19 +190,8 @@ export class LabScene {
     const shapes = makeLearningObjects();
     this.objects = [this.drone, ...shapes];
     shapes.forEach((object, i) => {
-      const placements = [
-        [-3.8, -1.8],
-        [-2.8, 2.4],
-        [0.7, -4.7],
-        [3.9, -1.6],
-        [2.6, 2],
-        [1.4, 0],
-      ];
-      object.position.set(
-        placements[i][0],
-        1.7 + (i % 2) * 0.35,
-        placements[i][1],
-      );
+      const angle = (i * Math.PI) / 3;
+      object.position.set(Math.sin(angle) * 3.8, 1.7, -Math.cos(angle) * 3.8);
       object.rotation.y = i * 0.5;
       this.scene.add(object);
       const pedestal = new THREE.Mesh(
@@ -232,9 +220,9 @@ export class LabScene {
     this.head.add(headBody);
     this.head.position.y = 1.25;
     this.mount.add(this.head);
-    this.mount.position.set(0, 0, 3.7);
+    this.mount.position.set(0, 0, 0);
     this.scene.add(this.mount);
-    this.sensor.position.set(0, 1.25, 3.7);
+    this.sensor.position.set(0, 1.25, 0);
     this.frustum = new THREE.CameraHelper(this.sensor);
     this.frustum.visible = false;
     this.scene.add(this.frustum);
@@ -242,7 +230,7 @@ export class LabScene {
       new THREE.BoxGeometry(2, 2.9, 0.18),
       mat(0x35434b),
     );
-    this.occluder.position.set(0, 1.45, 0.3);
+    this.occluder.position.set(0, 1.45, -1.6);
     this.occluder.visible = false;
     this.scene.add(this.occluder);
     this.scene.add(this.drone);
@@ -260,18 +248,18 @@ export class LabScene {
   }
   setTime(t: number, pattern = "ellipse") {
     this.flightTime = t;
-    if (pattern === "hover") this.drone.position.set(0.3, 2, -0.9);
+    if (pattern === "hover") this.drone.position.set(0, 3, -3.8);
     else if (pattern === "figure8")
       this.drone.position.set(
-        Math.sin(t * 0.45) * 3,
-        2 + Math.sin(t * 0.65) * 0.65,
-        -1.5 + Math.sin(t * 0.9) * 1.1,
+        Math.sin(t * 0.9) * 3.8,
+        3 + Math.sin(t * 0.65) * 0.2,
+        Math.cos(t * 0.45) * 3.8,
       );
     else
       this.drone.position.set(
-        Math.sin(t * 0.38) * 3,
-        2 + Math.sin(t * 0.52) * 0.6,
-        -1.4 + Math.cos(t * 0.38) * 1.2,
+        Math.sin(t * 0.38) * 3.8,
+        3 + Math.sin(t * 0.52) * 0.15,
+        -Math.cos(t * 0.38) * 3.8,
       );
     this.drone.rotation.set(
       Math.sin(t * 0.6) * 0.05,
@@ -283,11 +271,19 @@ export class LabScene {
     );
   }
   orient(pan: number, tilt: number) {
-    this.sensor.rotation.order = "YXZ";
-    this.sensor.rotation.set(rad(tilt), -rad(pan), 0);
+    if (pan === this.previousPan && tilt === this.previousTilt) return;
+    this.previousPan = pan;
+    this.previousTilt = tilt;
+    this.cameraAngles.set(rad(tilt), -rad(pan), 0);
+    this.cameraRotation.makeRotationFromEuler(this.cameraAngles);
+    // Reuse R_y(-azimuth) R_x(pitch) for both the sensor and its visible head.
+    for (const object of [this.sensor, this.head]) {
+      object.matrixAutoUpdate = false;
+      object.matrix.copy(this.cameraRotation).setPosition(object.position);
+      object.matrixWorldNeedsUpdate = true;
+    }
     this.sensor.updateMatrixWorld();
-    this.head.rotation.set(rad(tilt), -rad(pan), 0);
-    this.frustum.update();
+    this.frustumDirty = true;
   }
   capture() {
     const mountVisible = this.mount.visible;
@@ -314,10 +310,17 @@ export class LabScene {
   }
   render(showFrustum: boolean) {
     this.frustum.visible = showFrustum;
+    if (showFrustum && this.frustumDirty) {
+      this.frustum.update();
+      this.frustumDirty = false;
+    }
     this.controls.update();
     this.renderer.render(this.scene, this.overview);
   }
-  async learn(progress: (p: number) => void): Promise<Model> {
+  async learn(
+    progress: (p: number) => void,
+    targetLabel = "drone",
+  ): Promise<Model> {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x121820);
     scene.add(new THREE.AmbientLight(0xffffff, 2));
@@ -376,9 +379,8 @@ export class LabScene {
     this.renderer.setRenderTarget(null);
     progress(0.6);
     await new Promise((r) => setTimeout(r, 10));
-    const model = await trainObjects(training, validation, (p) =>
-      progress(0.6 + p * 0.4),
-    );
+    const model = trainTarget(training, validation, targetLabel);
+    progress(1);
     target.dispose();
     scene.traverse((o) => {
       if (o instanceof THREE.Mesh) {

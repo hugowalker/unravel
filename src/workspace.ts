@@ -4,7 +4,6 @@ export const workspaceViews = [
   ["block", "Block diagram", "What talks to what"],
   ["circuit", "Schematic", "How the circuit works"],
   ["wiring", "Wiring diagram", "What wire connects where"],
-  ["layout", "PCB / panel layout", "Where everything physically goes"],
   ["bom", "BOM / schedules", "What parts and connections exist"],
   ["tests", "Test documentation", "Proof that it works"],
 ] as const;
@@ -55,19 +54,6 @@ export const circuitDrawing = svg(
 <text class="small" x="35" y="650">All GND symbols share one reference. Camera and home-switch circuits remain unassigned.</text>`,
 );
 
-const panelDrawing = svg(
-  "Conceptual panel arrangement, not a fabricated PCB or dimensioned mechanical drawing",
-  `
-<text class="title" x="35" y="42">Conceptual panel arrangement</text><text class="small" x="35" y="69">Not to scale. No PCB routing, drill coordinates or fabrication files have been produced.</text>
-<rect class="symbol" x="55" y="105" width="990" height="460" stroke-dasharray="8 6"/>
-<rect class="box" x="90" y="155" width="280" height="190"/><text x="115" y="188">Compute / camera zone</text><text x="115" y="235">Raspberry Pi 4B</text><text class="small" x="115" y="270">USB-C power + cooling access</text><text class="small" x="115" y="303">Camera connector pending SKU</text>
-<rect class="box" x="500" y="155" width="230" height="190"/><text x="525" y="188">Motor driver zone</text><text x="525" y="235">DRV8825 + C1</text><text class="small" x="525" y="270">Short VMOT capacitor leads</text><text class="small" x="525" y="303">Current-limit / cooling access</text>
-<rect class="box" x="800" y="155" width="210" height="190"/><text x="825" y="188">Cable exits</text><text x="825" y="235">Stepper + servo</text><text class="small" x="825" y="270">Strain relief</text><text class="small" x="825" y="303">Travel clearance pending</text>
-<rect class="box" x="90" y="410" width="920" height="110"/><text x="115" y="445">Power entry / disconnect / common ground reference</text><text class="small" x="115" y="480">Keep high-current returns away from camera and GPIO wiring. Positive rails stay separate.</text>
-<path class="line" d="M370 250H500M730 250H800"/><text class="small" x="397" y="234">Logic</text><text class="small" x="745" y="234">Coils</text>
-<text x="55" y="608">Next: measure footprints, enclosure, airflow and cable bend radii.</text><text class="small" x="55" y="636">Mounting holes, clearances, wire gauge and connector selection require the actual parts.</text>`,
-);
-
 export function workspaceExtraPanels() {
   const bomRows = parts.map((p) => [
     p.id === "power"
@@ -103,7 +89,6 @@ export function workspaceExtraPanels() {
     ],
   );
   return `<section id="workspace-circuit" class="workspace-view" data-workspace-view="circuit" role="tabpanel" aria-labelledby="tab-circuit" hidden>${sheet("How the circuit works", "External carrier circuit, Revision A. Not a verified assembly schematic.", circuitDrawing)}<div class="document-notes"><p>R1 holds nENBL high at startup. C1 supplies local bulk decoupling at VMOT. nRESET and nSLEEP are held high; mode inputs select full steps. Set current limiting from the exact carrier and motor ratings.</p><p>Servo signal compatibility, camera interface, supply sizing and homing remain unverified. <a href="https://www.pololu.com/product/2133" target="_blank" rel="noreferrer">Read the carrier schematic and current-limit documentation ↗</a></p></div></section>
-<section id="workspace-layout" class="workspace-view" data-workspace-view="layout" role="tabpanel" aria-labelledby="tab-layout" hidden>${sheet("Where everything physically goes", "Panel concept only. A PCB layout requires verified footprints and a completed schematic.", panelDrawing)}</section>
 <section id="workspace-bom" class="workspace-view" data-workspace-view="bom" role="tabpanel" aria-labelledby="tab-bom" hidden>${sheet("Parts schedule", "Proposed quantities and reference identifiers. Ratings and procurement details are still open.", table(["Reference", "Part / specification", "Quantity", "Status"], bomRows))}${sheet("Connection schedule", "Logical nets and physical Pi pins. Harness connectors and wire sizes are unassigned.", table(["Pi physical pin", "BCM / rail", "Function", "Destination", "Constraint"], pinRows))}</section>
 <section id="workspace-tests" class="workspace-view" data-workspace-view="tests" role="tabpanel" aria-labelledby="tab-tests" hidden>${sheet(
     "Evidence and test status",

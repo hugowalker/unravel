@@ -14,6 +14,10 @@ export class Controller {
   missing = 0;
   direction = 1;
   searchRow = 0;
+  lastKnown: { pan: number; tilt: number } | null = null;
+  reacquiring = false;
+  fastRecovery = false;
+  fastSearching = false;
   limits = { pan: [-160, 160], tilt: [-15, 55] };
   reset() {
     this.pan = 0;
@@ -23,6 +27,9 @@ export class Controller {
     this.missing = 0;
     this.searchRow = 0;
     this.direction = 1;
+    this.lastKnown = null;
+    this.reacquiring = false;
+    this.fastSearching = false;
   }
   update(
     d: Detection | null,
@@ -42,6 +49,8 @@ export class Controller {
       return;
     }
     if (d) {
+      this.reacquiring = false;
+      this.fastSearching = false;
       this.hits++;
       this.missing = 0;
       this.mode = this.hits >= 3 ? "TRACKING" : "ACQUIRING";
@@ -57,6 +66,8 @@ export class Controller {
         this.tilt +=
           clamp(Math.abs(ey) > 0.025 ? -ey * fov * 2.4 : 0, -30, 30) * dt;
       }
+      if (this.mode === "TRACKING")
+        this.lastKnown = { pan: this.pan, tilt: this.tilt };
     } else {
       this.hits = 0;
       this.missing += dt;
@@ -66,10 +77,31 @@ export class Controller {
         this.mode === "LOST"
       ) {
         this.mode = "LOST";
-        if (this.missing < 0.65) return;
+        if (this.missing < (this.fastRecovery ? 0.15 : 0.65)) return;
       }
       this.mode = "SEARCHING";
-      this.pan += this.direction * 35 * dt;
+      if (this.lastKnown && this.fastRecovery) {
+        this.direction = this.lastKnown.pan >= 0 ? -1 : 1;
+        this.fastSearching = true;
+        this.lastKnown = null;
+      }
+      if (this.lastKnown && this.missing < 6) {
+        this.reacquiring = true;
+        const left = Math.max(this.limits.pan[0], this.lastKnown.pan - 25);
+        const right = Math.min(this.limits.pan[1], this.lastKnown.pan + 25);
+        this.pan = clamp(this.pan + this.direction * 25 * dt, left, right);
+        if (this.pan >= right) this.direction = -1;
+        else if (this.pan <= left) this.direction = 1;
+        this.tilt = clamp(
+          this.lastKnown.tilt,
+          this.limits.tilt[0],
+          this.limits.tilt[1],
+        );
+        return;
+      }
+      this.reacquiring = false;
+      this.lastKnown = null;
+      this.pan += this.direction * (this.fastSearching ? 180 : 35) * dt;
       if (this.pan >= 160 || this.pan <= -160) {
         this.direction *= -1;
         this.searchRow = (this.searchRow + 1) % 3;

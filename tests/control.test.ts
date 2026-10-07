@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Controller } from "../src/control";
-import { train, score, features, bounds } from "../src/vision";
+import { train, score, features, bounds, detect } from "../src/vision";
 test("acquires only after repeated observations, corrects right/up error", () => {
   const c = new Controller();
   const d = {
@@ -84,7 +84,12 @@ test("reset restores search direction", () => {
   assert.ok(c.pan > 0);
 });
 
-import { objectLabels, trainObjects, classify } from "../src/vision";
+import {
+  objectLabels,
+  trainObjects,
+  classify,
+  trainTarget,
+} from "../src/vision";
 import { estimateCompute } from "../src/compute";
 test("seven-class model learns distinct labels without target coordinates", async () => {
   const rows = objectLabels.map((_, y) => {
@@ -112,4 +117,98 @@ test("resource estimates cap throughput and power under overload", () => {
   const idle = estimateCompute(30, 100, 768, 1806, 10, false);
   assert.equal(idle.throughput, 0);
   assert.equal(idle.powerW, 2);
+});
+
+test("loss searches the last bearing before wide patrol and reacquires", () => {
+  const c = new Controller();
+  c.pan = 70;
+  c.tilt = 18;
+  const centered = {
+    box: [0.45, 0.45, 0.1, 0.1] as [number, number, number, number],
+    confidence: 0.9,
+  };
+  for (let i = 0; i < 3; i++) c.update(centered, 0.1, true, false);
+  const lastPan = c.pan;
+  for (let i = 0; i < 30; i++) {
+    c.update(null, 0.1, true, false);
+    assert.ok(Math.abs(c.pan - lastPan) <= 25);
+    assert.equal(c.tilt, 18);
+  }
+  assert.equal(c.reacquiring, true);
+  for (let i = 0; i < 3; i++) c.update(centered, 0.1, true, false);
+  assert.equal(c.mode, "TRACKING");
+  assert.equal(c.reacquiring, false);
+  for (let i = 0; i < 70; i++) c.update(null, 0.1, true, false);
+  assert.equal(c.mode, "SEARCHING");
+  assert.equal(c.reacquiring, false);
+  assert.equal(c.lastKnown, null);
+  c.reset();
+  assert.equal(c.lastKnown, null);
+});
+
+test("detector rejects clipped silhouettes while accepting complete regions", () => {
+  const rows = [
+    { x: new Array(257).fill(0), y: 0 },
+    { x: new Array(257).fill(1), y: 1 },
+  ];
+  const m = train(rows, rows);
+  m.classes = [{ label: "cube", weights: new Array(257).fill(0), bias: 10 }];
+  const image = (left: number) => {
+    const data = new Uint8ClampedArray(40 * 40 * 4);
+    for (let y = 10; y < 26; y++)
+      for (let x = left; x < left + 16; x++) {
+        const p = (y * 40 + x) * 4;
+        data[p] = data[p + 1] = data[p + 2] = 255;
+        data[p + 3] = 255;
+      }
+    return { width: 40, height: 40, data } as ImageData;
+  };
+  assert.ok(detect(image(10), m, 0.5, "cube"));
+  assert.equal(detect(image(0), m, 0.5, "cube"), null);
+});
+
+test("target training retains only the chosen object and rejects other examples", () => {
+  const rows = objectLabels.map((_, y) => {
+    const x = new Array(257).fill(0);
+    x[y] = 1;
+    return { x, y };
+  });
+  const drone = trainTarget(rows, rows, "drone");
+  assert.equal(drone.targetLabel, "drone");
+  const cube = trainTarget(rows, rows, "cube");
+  assert.ok(score(cube, rows[0].x) < 0.5);
+  assert.equal(cube.targetLabel, "cube");
+  assert.equal(cube.classes, undefined);
+  assert.ok(score(cube, rows[1].x) > 0.5);
+  rows
+    .filter((row) => row.y !== 1)
+    .forEach((row) => assert.ok(score(cube, row.x) < 0.5));
+  const sphere = trainTarget(rows, rows, "sphere");
+  assert.equal(sphere.targetLabel, "sphere");
+  assert.equal(sphere.classes, undefined);
+  assert.ok(score(sphere, rows[1].x) < 0.5);
+  assert.throws(() => trainTarget(rows, rows, "unknown"), /Unknown target/);
+});
+
+test("drone loss rapidly sweeps toward the opposite side within travel limits", () => {
+  const c = new Controller();
+  c.fastRecovery = true;
+  c.pan = 140;
+  const centered = {
+    box: [0.45, 0.45, 0.1, 0.1] as [number, number, number, number],
+    confidence: 0.9,
+  };
+  for (let i = 0; i < 3; i++) c.update(centered, 0.1, true, false);
+  c.update(null, 0.1, true, false);
+  assert.equal(c.mode, "LOST");
+  c.update(null, 0.1, true, false);
+  assert.equal(c.fastSearching, true);
+  assert.equal(c.pan, 122);
+  for (let i = 0; i < 100; i++) {
+    c.update(null, 0.1, true, false);
+    assert.ok(c.pan >= -160 && c.pan <= 160);
+  }
+  for (let i = 0; i < 3; i++) c.update(centered, 0.1, true, false);
+  assert.equal(c.mode, "TRACKING");
+  assert.equal(c.fastSearching, false);
 });

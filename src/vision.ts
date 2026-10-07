@@ -7,6 +7,9 @@ export type Model = {
   accuracy: number;
   samples: number;
   trainedAt: string;
+  targetLabel?: string;
+  targetRecall?: number;
+  falsePositiveRate?: number;
   classes?: { label: string; weights: number[]; bias: number }[];
 };
 const sigmoid = (x: number) =>
@@ -50,6 +53,8 @@ export function train(
     throw new Error("Training and validation sets must both contain samples.");
   const weights = new Array(FEATURE_SIZE ** 2 + 1).fill(0);
   let bias = 0;
+  const positives = samples.filter((s) => s.y === 1).length;
+  const negatives = samples.length - positives;
   // Balanced, deterministic full-batch logistic regression. No geometry is used at inference.
   for (let epoch = 0; epoch < 180; epoch++) {
     const grad = new Float64Array(weights.length);
@@ -57,7 +62,11 @@ export function train(
     for (const { x, y } of samples) {
       let z = bias;
       for (let j = 0; j < x.length; j++) z += weights[j] * x[j];
-      const err = sigmoid(z) - y;
+      const balance =
+        y === 1
+          ? samples.length / (2 * Math.max(1, positives))
+          : samples.length / (2 * Math.max(1, negatives));
+      const err = (sigmoid(z) - y) * balance;
       gb += err;
       for (let j = 0; j < x.length; j++) grad[j] += err * x[j];
     }
@@ -79,7 +88,7 @@ export function train(
       .length / validation.length;
   return model;
 }
-export function maskImage(image: ImageData, threshold = 145) {
+export function maskImage(image: ImageData, threshold = 90) {
   const mask = new Uint8Array(image.width * image.height);
   for (let i = 0; i < mask.length; i++) {
     const p = i * 4;
@@ -177,11 +186,16 @@ export function detect(
     const bw = x1 - x0 + 1,
       bh = y1 - y0 + 1;
     if (q.length < 12 || bw < 10 || bh < 8) continue;
+    // Cropped silhouettes can resemble a different class; acquire only complete regions.
+    if (x0 <= 1 || y0 <= 1 || x1 >= w - 2 || y1 >= h - 2) continue;
     if (targetLabel === "drone" && bw / bh < 1.1) continue;
     const vector = features(mask, w, h, [x0, y0, bw, bh]);
     const prediction = model.classes
       ? classify(model, vector)
-      : { label: "drone", confidence: score(model, vector) };
+      : {
+          label: model.targetLabel ?? "drone",
+          confidence: score(model, vector),
+        };
     if (prediction.label !== targetLabel) continue;
     const confidence = prediction.confidence;
     if (confidence >= threshold && (!best || confidence > best.confidence))
@@ -274,5 +288,32 @@ export async function trainObjects(
     validation.filter((s) => classify(model, s.x).label === objectLabels[s.y])
       .length / validation.length;
   progress(1);
+  return model;
+}
+
+export function trainTarget(
+  samples: { x: number[]; y: number }[],
+  validation: { x: number[]; y: number }[],
+  label: string,
+): Model {
+  const targetIndex = objectLabels.findIndex((value) => value === label);
+  if (targetIndex < 0) throw new Error("Unknown target object.");
+  if (
+    !samples.some((s) => s.y === targetIndex) ||
+    !samples.some((s) => s.y !== targetIndex)
+  )
+    throw new Error("Target and negative examples are required.");
+  const binary = (rows: { x: number[]; y: number }[]) =>
+    rows.map((s) => ({ x: s.x, y: s.y === targetIndex ? 1 : 0 }));
+  const model = train(binary(samples), binary(validation));
+  model.targetLabel = label;
+  const positives = validation.filter((s) => s.y === targetIndex);
+  const negatives = validation.filter((s) => s.y !== targetIndex);
+  model.targetRecall =
+    positives.filter((s) => score(model, s.x) >= 0.5).length /
+    Math.max(1, positives.length);
+  model.falsePositiveRate =
+    negatives.filter((s) => score(model, s.x) >= 0.5).length /
+    Math.max(1, negatives.length);
   return model;
 }

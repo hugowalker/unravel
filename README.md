@@ -26,12 +26,12 @@ The static build is in `dist`. It can run on any static web host; the default de
 
 ## Explore
 
-- **Flight laboratory:** orbitable circular 3D room, simulated camera feed, pan/tilt telemetry, centering-error chart and detection-confidence meter, hover/patrol/figure-eight paths, occlusion, lighting, target visibility, and manual steering.
-- **Workspace:** block diagram, carrier interface schematic, point-to-point wiring, conceptual panel layout, BOM and connection schedules, and test evidence. Hardware drawings remain proposed.
+- **Flight laboratory:** orbitable circular 3D room, simulated camera feed, pan/tilt telemetry, centering-error chart and detection-confidence meter, stationary/orbit drone motion, occlusion, lighting, target visibility, and manual steering.
+- **Workspace:** block diagram, carrier interface schematic, point-to-point wiring, BOM and connection schedules, and test evidence. Hardware drawings remain proposed.
 - **Recognition model:** live synthetic training, model export, and optional connection to a trained local YOLO detector.
 - **Project notebook:** implementation boundaries, hardware baseline, session measurements, and a downloadable technical dossier.
 
-The browser detector receives RGB pixels, not simulator target coordinates. It proposes bright connected regions, extracts a 16 x 16 silhouette plus aspect ratio, and classifies seven object types with softmax regression: drone, cube, sphere, cylinder, cone, torus and pyramid. Training uses 672 crops and holds out 168 crops. Similar shapes can be confused. The model is restricted to high-contrast synthetic scenes; it is not a general real-image detector. Select the tracking target in Scene controls. The optional YOLO backend remains drone-only.
+The browser detector receives RGB pixels, not simulator target coordinates. It proposes bright connected regions, extracts a 16 x 16 silhouette plus aspect ratio, and scores the selected object with binary logistic regression. Choose drone, cube, sphere, cylinder, cone, torus or pyramid in Recognition model. Training uses 672 crops (96 selected-object positives and 576 negative examples) and holds out 168 crops. Only one target label and its weights are retained; training another object replaces them. The camera sits at the room centre, with six shapes on a surrounding ring and a drone orbiting above them. Similar silhouettes can be confused. The model is restricted to high-contrast synthetic scenes; it is not a general real-image detector. The optional YOLO backend remains drone-only.
 
 ## Optional Python detector
 
@@ -81,4 +81,8 @@ Original code and procedural geometry are MIT licensed. Third-party dependencies
 
 ## Raspberry Pi resource estimates
 
-The laboratory shows labelled RAM and power estimates for a 4 GB Pi. No board telemetry is connected. Editable reserved memory, inference time, requested frame rate and loaded-power assumptions drive the display; the estimation formula is available in the UI. These values are not measurements or Pi benchmarks. Motor/camera power is excluded. The downloadable PDF is the archived 6 October dossier; the README and Recognition workspace describe the current seven-class implementation.
+The laboratory shows labelled RAM and power estimates for a 4 GB Pi. No board telemetry is connected. Editable reserved memory, inference time, requested frame rate and loaded-power assumptions drive the display; the estimation formula is available in the UI. These values are not measurements or Pi benchmarks. Motor/camera power is excluded. The downloadable PDF is the archived 6 October dossier; the README and Recognition workspace describe the current selected-object implementation.
+
+In Recognition model, choose an object, train the target-only classifier, then use **Scan room**. The camera begins at -160 degrees and searches from camera pixels. Changing the object pauses tracking. After target loss, the controller holds for 0.65 seconds, searches within 25 degrees of the last tracked bearing until six seconds have elapsed, then returns to full patrol within its travel limits. **Hide target** allows loss/reacquisition testing for each object type.
+
+The camera preview targets 60 FPS and displays its measured rate. WebGL uses GPU rendering; silhouette extraction and recognition run on the CPU at 10 Hz. Actual FPS depends on the browser and hardware. A shared rotation matrix drives the camera/head; unchanged angles skip updates. The live network view shows actual input values, strongest learned weights, target score and the separate azimuth/pitch controller commands. Drone loss triggers a bounded 180-degree/second opposite-side sweep in the simulation. Drone-only controls offer Stationary, Orbit and a flight-speed slider.

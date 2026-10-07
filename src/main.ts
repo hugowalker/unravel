@@ -60,10 +60,17 @@ const icons = {
   Package,
 };
 import "./style.css";
+import { drawNetwork } from "./network";
 import { computeMarkup, estimateCompute } from "./compute";
 import { LabScene } from "./scene";
 import { Controller, type Detection } from "./control";
-import { detect, objectLabels, type Model } from "./vision";
+import {
+  detect,
+  objectLabels,
+  features,
+  maskImage,
+  type Model,
+} from "./vision";
 import { parts, pinRows, schematic } from "./electronics";
 import {
   workspaceViews,
@@ -79,21 +86,22 @@ document.querySelector("#app")!.innerHTML = `
 <aside class="sidebar">
  <a class="brand" href="#lab" aria-label="Kestrel laboratory"><span class="brandmark">K</span><span>kestrel<span class="brand-sub">Drone tracking laboratory</span></span></a>
  <div class="nav-label">Workspace</div>
- <nav aria-label="Workspace"><button data-tab="lab" class="active">${icon("scan-line")} Flight laboratory</button>${workspaceViews.map(([id, label]) => `<button data-workspace-link="${id}">${icon(id === "bom" ? "package" : id === "tests" ? "activity" : id === "block" ? "workflow" : id === "layout" ? "rows-3" : "circuit-board")} ${id === "layout" ? "PCB layout" : id === "bom" ? "BOM" : label}</button>`).join("")}<button data-tab="model">${icon("brain-circuit")} Recognition model</button><button data-tab="notebook">${icon("book-open")} Project notebook</button></nav>
+ <nav aria-label="Workspace"><button data-tab="lab" class="active">${icon("scan-line")} Flight laboratory</button><button data-tab="model">${icon("brain-circuit")} Recognition model</button>${workspaceViews.map(([id, label]) => `<button data-workspace-link="${id}">${icon(id === "bom" ? "package" : id === "tests" ? "activity" : id === "block" ? "workflow" : "circuit-board")} ${id === "bom" ? "BOM" : label}</button>`).join("")}<button data-tab="notebook">${icon("book-open")} Project notebook</button></nav>
  <div class="sidebar-bottom"><div class="hardware-glyph">${icon("cpu")}<span>Raspberry Pi 4B<small>Hardware integration planned</small></span></div><a href="https://github.com/hugowalker/unravel" target="_blank" rel="noreferrer">${icon("github")} Source repository ${icon("external-link")}</a><span class="version">KESTREL v0.1 · SIMULATION</span></div>
 </aside>
 <main>
- <header><div class="breadcrumb">KESTREL <span>/</span> <b id="crumb">FLIGHT LABORATORY</b></div><div class="header-right"><span class="local-badge">${icon("monitor")} Local simulation</span><button class="icon-button" id="help" aria-label="Open project notebook">${icon("circle-help")}</button></div></header>
+ <header><div class="breadcrumb">KESTREL <span>/</span> <b id="crumb">FLIGHT LABORATORY</b></div><div class="header-right"><span class="local-badge">${icon("monitor")} WebGL / GPU rendering</span><button class="icon-button" id="help" aria-label="Open project notebook">${icon("circle-help")}</button></div></header>
  <section class="page active" id="page-lab">
-  <div class="page-title"><div><h1>Object tracking</h1><p>Learn seven object types and test camera tracking in a circular room.</p></div><button id="start" class="primary">${icon("play")} Start tracking</button></div>
+  <div class="page-title"><div><h1>Object tracking</h1><p>Train an object in Recognition, then scan from the centre of the room.</p></div><button id="start" class="primary">${icon("play")} Start tracking</button></div>
   <div class="mission-bar"><span class="status" id="status"><span class="status-dot"></span>STANDBY</span><span class="mission-sep"></span><span>SCENE <b>Circular laboratory</b></span><span>DETECTOR <b id="detector-label">Synthetic classifier</b></span><span class="mission-end">${icon("box")} 13 m diameter</span></div>
   <div class="lab-grid">
    <article class="panel scene-panel"><div class="panel-title"><span>${icon("orbit")} Room view</span><span class="mini">DRAG TO ORBIT · SCROLL TO ZOOM</span></div><div id="scene"><div class="scene-tag"><span class="tiny-square"></span> SIMULATION</div><div class="scene-scale">1 m radial grid</div></div><div class="scene-footer"><label class="check"><input type="checkbox" id="frustum"> Show camera frustum</label><button class="text-button" id="reset-view">${icon("focus")} Reset view</button></div></article>
-   <article class="panel feed-panel"><div class="panel-title"><span>${icon("video")} Tracking camera</span><span class="mini">320 × 180</span></div><div class="feed-wrap"><canvas id="feed" width="640" height="360" aria-label="Simulated camera feed with learned detections"></canvas><div class="feed-corner">VIRTUAL CAMERA</div><div class="reticle"></div><div class="feed-bottom" id="feed-caption">Camera ready · awaiting start</div></div><div class="telemetry"><div><span>AZIMUTH</span><strong id="pan-value">0.0<small>°</small></strong><div class="meter"><i id="pan-meter"></i></div></div><div><span>PITCH</span><strong id="tilt-value">8.0<small>°</small></strong><div class="meter"><i id="tilt-meter"></i></div></div></div><div class="detection-info"><span id="detection-summary">No active detection</span><span class="mini" id="latency">— ms</span></div></article>
+   <article class="panel feed-panel"><div class="panel-title"><span>${icon("video")} Tracking camera</span><span class="mini">320 × 180 · <span id="camera-fps">60 FPS target</span></span></div><div class="feed-wrap"><canvas id="feed" width="640" height="360" aria-label="Simulated camera feed with learned detections"></canvas><div class="feed-corner">VIRTUAL CAMERA</div><div class="reticle"></div><div class="feed-bottom" id="feed-caption">Camera ready · awaiting start</div></div><div class="telemetry"><div><span>AZIMUTH</span><strong id="pan-value">0.0<small>°</small></strong><div class="meter"><i id="pan-meter"></i></div></div><div><span>PITCH</span><strong id="tilt-value">8.0<small>°</small></strong><div class="meter"><i id="tilt-meter"></i></div></div></div><div class="detection-info"><span id="detection-summary">No active detection</span><span class="mini" id="latency">— ms</span></div></article>
   </div>
-  <div class="lower-grid"><article class="panel controls-panel"><div class="panel-title"><span>${icon("sliders-horizontal")} Scene controls</span><button class="text-button" id="reset">Reset simulation</button></div><div class="control-grid"><label>Tracking target<select id="target-object">${objectLabels.map((label) => `<option value="${label}">${label[0].toUpperCase() + label.slice(1)}</option>`).join("")}</select></label><label>Flight path<select id="path"><option value="ellipse">Elliptical patrol</option><option value="figure8">Figure of eight</option><option value="hover">Stationary hover</option></select></label><label>Flight speed <output id="speed-out">1.0×</output><input id="speed" type="range" min="0" max="2" step=".1" value="1"></label><label>Illumination <output id="light-out">100%</output><input id="light" type="range" min=".15" max="1.3" step=".05" value="1"></label></div><div class="toggle-row"><label class="check"><input id="obstacle" type="checkbox"> Add obstruction</label><label class="check"><input id="hide-drone" type="checkbox"> Hide drone</label><label class="check"><input id="manual" type="checkbox"> Manual camera</label></div><div class="manual-controls" hidden><label>Azimuth <input id="manual-pan" type="range" min="-160" max="160" value="0"></label><label>Pitch <input id="manual-tilt" type="range" min="-15" max="55" value="8"></label></div></article><article class="panel error-panel"><div class="panel-title"><span>${icon("activity")} Centering error</span><span class="mini">LAST 30 S</span></div><canvas id="error-chart" width="500" height="105" aria-label="Chart of horizontal and vertical centering error"></canvas><div class="chart-legend"><span><i></i> Horizontal</span><span><i></i> Vertical</span><b id="error-value">—</b></div><div class="confidence-panel"><div><label for="confidence-meter">Detection confidence</label><output id="confidence-value">No detection</output></div><meter id="confidence-meter" min="0" max="1" value="0" aria-label="Detection confidence"></meter><p>Detector score; not calibrated real-world accuracy.</p></div></article></div>
+  <div class="lower-grid"><article class="panel controls-panel"><div class="panel-title"><span>${icon("sliders-horizontal")} Tracking controls</span><button class="text-button" id="reset">Reset simulation</button></div><div class="control-grid"><div class="tracking-target"><span>Object to find</span><strong id="tracking-object-label">Drone</strong><button class="text-button" data-go="model">Change object / train</button><select id="target-object" hidden aria-label="Selected recognition object">${objectLabels.map((label) => `<option value="${label}">${label[0].toUpperCase() + label.slice(1)}</option>`).join("")}</select></div><label class="drone-setting">Drone motion<select id="path"><option value="ellipse">Orbit</option><option value="hover">Stationary</option></select></label><label class="drone-setting">Flight speed <output id="speed-out">1.0×</output><input id="speed" type="range" min="0" max="2" step=".1" value="1"></label><label>Illumination <output id="light-out">100%</output><input id="light" type="range" min=".15" max="1.3" step=".05" value="1"></label></div><div class="toggle-row"><label class="check"><input id="obstacle" type="checkbox"> Add obstruction</label><label class="check"><input id="hide-target" type="checkbox"> Hide target</label><label class="check"><input id="manual" type="checkbox"> Manual camera</label></div><div class="manual-controls" hidden><label>Azimuth <input id="manual-pan" type="range" min="-160" max="160" value="0"></label><label>Pitch <input id="manual-tilt" type="range" min="-15" max="55" value="8"></label></div></article><article class="panel error-panel"><div class="panel-title"><span>${icon("activity")} Centering error</span><span class="mini">LAST 30 S</span></div><canvas id="error-chart" width="500" height="105" aria-label="Chart of horizontal and vertical centering error"></canvas><div class="chart-legend"><span><i></i> Horizontal</span><span><i></i> Vertical</span><b id="error-value">—</b></div><div class="confidence-panel"><div><label for="confidence-meter">Detection confidence</label><output id="confidence-value">No detection</output></div><meter id="confidence-meter" min="0" max="1" value="0" aria-label="Detection confidence"></meter><p>Detector score; not calibrated real-world accuracy.</p></div></article></div>
+  <article class="panel live-network"><div class="panel-title"><span>${icon("brain-circuit")} Live recognition network</span><span class="mini">RECOGNITION → AZIMUTH / PITCH</span></div><canvas id="network-canvas" width="680" height="400" aria-label="Live recognition network feeding a feedback controller with azimuth and pitch outputs"></canvas><div class="network-readout"><strong id="network-status">Train an object in Recognition to begin.</strong><div class="network-guide"><div><b>1. See the shape</b><p>Lit cells show the object silhouette from the camera.</p></div><div><b>2. Recognise the pattern</b><p>Learned weights decide which shape details raise or lower the match score. Orange adds; grey subtracts. Thicker lines have a stronger contribution. Connections are ordered from strongest at the top to weakest at the bottom; r/c identifies the input cell’s row and column. Their order is not a camera direction.</p></div><div><b>3. Move the camera</b><p>Azimuth turns left or right. Pitch tilts up or down to centre the detected object.</p></div></div><details><summary>Show the calculation</summary><p>This is one logistic recognition unit with no hidden layers. Score = sigmoid(weighted input sum + bias). The diagram shows the twelve strongest weights; the score uses all 257 inputs. The detected box feeds a separate camera controller. Inputs and commands update at 10 Hz.</p></details></div></article>
   ${computeMarkup}
-  <div class="notice"><span>${icon("flask-conical")} SYNTHETIC DEMONSTRATION</span><p>The classifier learns seven rendered object types. Real-camera recognition and Raspberry Pi deployment need separate validation.</p><button class="text-button" data-go="model">Inspect model</button></div>
+  <div class="notice"><span>${icon("flask-conical")} SYNTHETIC DEMONSTRATION</span><p>The classifier retains only the chosen rendered object. Real-camera recognition and Raspberry Pi deployment need separate validation.</p><button class="text-button" data-go="model">Inspect model</button></div>
  </section>
  <section class="page" id="page-electronics">
   <div class="page-title"><div><h1 id="document-title">Block diagram</h1><p>Architecture, circuits, connections, parts, and test evidence.</p></div><button id="download-schematic" class="secondary">${icon("download")} Download block diagram</button></div>
@@ -108,15 +116,22 @@ document.querySelector("#app")!.innerHTML = `
   </section>${workspaceExtraPanels()}
  </section>
  <section class="page" id="page-model">
-  <div class="page-title"><div><h1>Object recognition</h1><p>Seven object classes learned from labelled synthetic views.</p></div><button class="secondary" id="export-model">${icon("download")} Export model</button></div>
-  <div class="model-grid"><article class="panel model-summary"><div class="panel-title"><span>${icon("brain-circuit")} Seven-class silhouette model</span><span class="mini">BROWSER / CPU</span></div><div class="model-body"><div class="model-state" id="model-state">Seven classes · ready to learn</div><h2>Rendered training samples</h2><p>Render labelled views of a drone, cube, sphere, cylinder, cone, torus and pyramid. Extract silhouette features and train a seven-class softmax classifier. At runtime, only camera pixels reach the detector.</p><div class="training-progress"><i id="training-bar"></i></div><div class="training-metrics"><div><span>Training crops</span><b id="sample-count">—</b></div><div><span>Held-out accuracy</span><b id="model-accuracy">—</b></div><div><span>Input features</span><b>257</b></div></div><button class="primary" id="train-model">${icon("sparkles")} Train on synthetic views</button><p class="small-note">Held-out crops share the same seven procedural assets. The score measures synthetic classification, not recognition of unseen real objects.</p></div></article><article class="panel pipeline-panel"><div class="panel-title"><span>${icon("workflow")} Detection steps</span></div><ol class="pipeline"><li><span>01</span><div><h3>Capture</h3><p>Read a 320 × 180 RGB image from the virtual pan/tilt camera.</p></div></li><li><span>02</span><div><h3>Propose regions</h3><p>Find connected bright regions. This intentionally simple stage assumes a dark synthetic room.</p></div></li><li><span>03</span><div><h3>Classify appearance</h3><p>Predict one of seven object labels from silhouette features; reject uncertain regions.</p></div></li><li><span>04</span><div><h3>Close the loop</h3><p>Use bounding-box error to steer azimuth and pitch, with speed and travel limits.</p></div></li></ol></article></div>
-  <article class="panel recognition-explainer"><div class="document-heading"><h2>How recognition works</h2><p>Object detection and tracking connects a learned visual label to feedback control.</p></div><ol><li><h3>Learning from labelled views</h3><p>The browser renders 840 views across seven object types. It changes orientation and lighting, then splits the crops into 672 training examples and 168 held-out examples. The labels are known during training.</p></li><li><h3>Object detection and classification</h3><p>At runtime, the camera captures pixels. Bright connected regions propose candidate boxes. Each silhouette becomes 256 occupancy features plus its aspect ratio. Learned weights produce seven class scores; the highest score names the object. The selected target needs a score of at least 50% to be accepted.</p></li><li><h3>Tracking through feedback control</h3><p>The controller compares the detected box centre with the image centre. That error steers azimuth and pitch within bounded speeds and travel. Repeated observations acquire a target; missing observations lead back to scanning.</p></li><li><h3>Repeatable testing and algorithm validation</h3><p>Flight paths, lighting, occlusion and target selection create repeatable testing conditions. Held-out accuracy tests the classifier separately from tracking and centring. Similar silhouettes can still be confused; a high synthetic score is not proof of real-camera performance.</p></li><li><h3>Moving inference to an onboard computer</h3><p>The intended onboard computer captures real frames and runs a separately trained model. Raspberry Pi deployment requires real-image data, measured latency, memory and power, and hardware validation. The compute simulator below the laboratory uses explicit assumptions, not live device measurements.</p></li></ol></article>
+  <div class="page-title"><div><h1>Object recognition</h1><p>Choose an object, train recognition, then scan the room to lock onto it.</p></div><button class="secondary" id="export-model">${icon("download")} Export model</button></div>
+  <div class="model-grid"><article class="panel model-summary"><div class="panel-title"><span>${icon("brain-circuit")} Selected-object model</span><span class="mini">BROWSER / CPU</span></div><div class="model-body"><div class="model-state" id="model-state">Choose an object to learn</div><h2>Learn an object, then find it</h2><p>Select the object you want the camera to find. Use labelled views of that object as positives and the other shapes as negatives. Training replaces the saved model; it retains only the selected object. Then scan the room and track the selected object using camera pixels.</p><label class="learning-target">Object to find<select id="learning-object">${objectLabels.map((label) => `<option value="${label}">${label[0].toUpperCase() + label.slice(1)}</option>`).join("")}</select></label><div class="training-progress"><i id="training-bar"></i></div><div class="training-metrics"><div><span>Training crops</span><b id="sample-count">—</b></div><div><span>Held-out accuracy</span><b id="model-accuracy">—</b></div><div><span>Input features</span><b>257</b></div></div><button class="primary" id="train-model">${icon("sparkles")} Train recognition model</button><button class="secondary" id="scan-object" disabled>${icon("scan-line")} Scan room for Drone</button><p id="learning-next" class="small-note" aria-live="polite">Train the model to enable the room scan.</p><p id="target-validation" class="small-note"></p><p class="small-note">Held-out crops share the same seven procedural assets. The score measures synthetic classification, not recognition of unseen real objects.</p></div></article><article class="panel pipeline-panel"><div class="panel-title"><span>${icon("workflow")} Detection steps</span></div><ol class="pipeline"><li><span>01</span><div><h3>Capture</h3><p>Preview a 320 × 180 camera image at a target of 60 FPS with WebGL rendering. CPU recognition samples it at 10 Hz.</p></div></li><li><span>02</span><div><h3>Propose regions</h3><p>Find connected bright regions. This intentionally simple stage assumes a dark synthetic room.</p></div></li><li><span>03</span><div><h3>Classify appearance</h3><p>Score the trained object from silhouette features; reject uncertain regions.</p></div></li><li><span>04</span><div><h3>Close the loop</h3><p>Use bounding-box error to steer azimuth and pitch, with speed and travel limits.</p></div></li></ol></article></div>
+  <article class="panel training-diagram"><div class="document-heading"><h2>How the model trains</h2><p>The selected object becomes the positive example. Everything else is a negative example.</p></div><ol class="training-flow" aria-label="Training process diagram">
+<li><span class="flow-number">01</span>${icon("box")}<h3>Render labelled views</h3><p>Seven procedural 3D assets, varied orientation and lighting.</p><b>840 RGB crops · 96 × 96 pixels</b></li>
+<li><span class="flow-number">02</span>${icon("scan-line")}<h3>Extract a silhouette</h3><p>Threshold bright pixels, crop the object and sample its shape.</p><b>16 × 16 occupancy + aspect ratio</b></li>
+<li><span class="flow-number">03</span>${icon("rows-3")}<h3>Split the examples</h3><p>Keep held-out views out of the weight updates.</p><b>672 training · 168 validation</b></li>
+<li><span class="flow-number">04</span>${icon("brain-circuit")}<h3>Learn target weights</h3><p>Compare the predicted target score with its label. Adjust weights to reduce the error, balancing target and negative examples.</p><b>180 updates · binary logistic regression</b></li>
+<li><span class="flow-number">05</span>${icon("activity")}<h3>Check held-out views</h3><p>Report accuracy, target recall and false positives on other shapes.</p><b>24 target views · 144 other views</b></li>
+<li><span class="flow-number">06</span>${icon("cpu")}<h3>Keep one object</h3><p id="diagram-target">Save only the chosen target and its weights. Replace the previous model.</p><b>257 weights + 1 bias · no other class models</b></li>
+</ol><div class="inference-flow"><span>Live camera pixels</span>${icon("chevron-right")}<span>Target score ≥ 50%</span>${icon("chevron-right")}<span>Repeated detections</span>${icon("chevron-right")}<span>Pan / tilt tracking</span></div><p class="small-note">WebGL renders the room and camera on the GPU. The CPU extracts silhouettes and scores the trained object at 10 Hz. The controller receives image boxes, not object positions from the 3D scene.</p></article><article class="panel recognition-explainer"><div class="document-heading"><h2>How recognition works</h2><p>Object detection and tracking connects a learned visual label to feedback control.</p></div><ol><li><h3>Learning from labelled views</h3><p>The browser renders 840 views across seven object types. It changes orientation and lighting, then splits the crops into 672 training examples and 168 held-out examples. The labels are known during training.</p></li><li><h3>Object detection and classification</h3><p>At runtime, the camera captures pixels. Bright connected regions propose candidate boxes. Each silhouette becomes 256 occupancy features plus its aspect ratio. The saved weights produce a score for the trained object only. Candidates need a score of at least 50% to be accepted; the other six object labels are not retained.</p></li><li><h3>Tracking through feedback control</h3><p>The controller compares the detected box centre with the image centre. That error steers azimuth and pitch within bounded speeds and travel. Repeated observations acquire a target. After loss, the camera holds briefly, searches within 25° of its last tracked bearing for up to six seconds, then resumes the wider room patrol. Drone tracking instead uses a rapid 180°/s sweep toward the other side after a brief loss hold; this is a simulation setting, not a tested motor speed.</p></li><li><h3>Repeatable testing and algorithm validation</h3><p>Flight paths, lighting, occlusion and target selection create repeatable testing conditions. Held-out accuracy tests the classifier separately from tracking and centring. Similar silhouettes can still be confused; a high synthetic score is not proof of real-camera performance.</p></li><li><h3>Moving inference to an onboard computer</h3><p>The intended onboard computer captures real frames and runs a separately trained model. Raspberry Pi deployment requires real-image data, measured latency, memory and power, and hardware validation. The compute simulator below the laboratory uses explicit assumptions, not live device measurements.</p></li></ol></article>
   <article class="panel backend-panel"><div class="panel-title"><span>${icon("server")} Real-image detector</span><span class="mini">OPTIONAL LOCAL PYTHON SERVICE</span></div><div class="backend-body"><div><h3>Bring a trained YOLO model.</h3><p>The Python service accepts camera frames and returns drone boxes. Training and NCNN export scripts are included in the repository. Real-image weights are not bundled.</p></div><div class="backend-connect"><label for="backend-url">Local service address</label><div class="input-row"><input id="backend-url" value="ws://127.0.0.1:8000/ws/detect" aria-label="Local detector WebSocket address"><button id="connect-backend" class="secondary">Connect</button></div><span id="backend-status">Browser classifier selected</span></div></div></article>
   <div class="note-grid"><div><span class="note-number">DATA</span><h3>Use images of drones.</h3><p>Datasets filmed from drones often label cars and pedestrians. Verify that the drone itself is annotated before training.</p></div><div><span class="note-number">SPLITS</span><h3>Separate recordings.</h3><p>Keep complete real recordings in one split. Do not scatter adjacent video frames across training and testing.</p></div><div><span class="note-number">DEPLOY</span><h3>Measure on the Pi.</h3><p>Export a compact model to NCNN, then measure latency and recall with the actual camera before enabling motors.</p></div></div>
  </section>
  <section class="page" id="page-notebook">
   <div class="page-title"><div><h1>Project notes</h1><p>A visual tracking project that connects machine perception to physical motion.</p></div><a class="secondary" href="/kestrel-dossier.pdf" target="_blank">${icon("file-down")} Technical dossier · 6 Oct</a></div>
-  <div class="notebook-grid"><article class="panel notebook-main"><span class="eyebrow">THE OBJECTIVE</span><h2>Camera detection and pan/tilt control</h2><p>Use a camera to recognise a selected object, then keep it centred by rotating an azimuth stepper and a pitch servo. The browser laboratory makes the feedback loop visible before physical hardware is connected.</p><div class="architecture"><span>Camera pixels</span>${icon("chevron-right")}<span>Detection</span>${icon("chevron-right")}<span>Control error</span>${icon("chevron-right")}<span>Pan + tilt</span></div><h3>What is implemented</h3><ul><li>Circular 3D room, seven procedural object types, and virtual tracking camera.</li><li>Browser-trained seven-class silhouette recognition and bounded feedback control.</li><li>Search, acquisition, tracking, lost-target, and manual modes.</li><li>Selectable electronics diagram and proposed GPIO connection table.</li><li>Optional Python inference service, real-image training scripts, and deployment guide.</li></ul><h3>What remains experimental</h3><p>Physical wiring, camera compatibility, real-image model accuracy, motor timing, and mechanical calibration require bench validation. The diagram is a proposed design, not a record of an assembled system.</p><h3>Validation approach</h3><p>Test hover, slow patrol, empty scenes, obstructions, target loss, and stale detections. Measure detector accuracy separately from camera centring. A good synthetic score is not evidence of real-world performance.</p><button class="secondary" id="export-session">${icon("download")} Export session measurements</button></article><aside><article class="panel build-list"><div class="panel-title"><span>${icon("package")} Hardware baseline</span></div>${[
+  <div class="notebook-grid"><article class="panel notebook-main"><span class="eyebrow">THE OBJECTIVE</span><h2>Camera detection and pan/tilt control</h2><p>Use a camera to recognise a selected object, then keep it centred by rotating an azimuth stepper and a pitch servo. The browser laboratory makes the feedback loop visible before physical hardware is connected.</p><div class="architecture"><span>Camera pixels</span>${icon("chevron-right")}<span>Detection</span>${icon("chevron-right")}<span>Control error</span>${icon("chevron-right")}<span>Pan + tilt</span></div><h3>What is implemented</h3><ul><li>Circular 3D room, seven procedural object types, and virtual tracking camera.</li><li>Browser-trained recognition of one selected object and bounded feedback control.</li><li>Search, acquisition, tracking, lost-target, and manual modes.</li><li>Selectable electronics diagram and proposed GPIO connection table.</li><li>Optional Python inference service, real-image training scripts, and deployment guide.</li></ul><h3>What remains experimental</h3><p>Physical wiring, camera compatibility, real-image model accuracy, motor timing, and mechanical calibration require bench validation. The diagram is a proposed design, not a record of an assembled system.</p><h3>Validation approach</h3><p>Test hover, slow patrol, empty scenes, obstructions, target loss, and stale detections. Measure detector accuracy separately from camera centring. A good synthetic score is not evidence of real-world performance.</p><button class="secondary" id="export-session">${icon("download")} Export session measurements</button></article><aside><article class="panel build-list"><div class="panel-title"><span>${icon("package")} Hardware baseline</span></div>${[
     ["Raspberry Pi 4B", "Compute · 4 GB"],
     ["Arducam Mini", "Camera · exact SKU pending"],
     ["FITO278 + DRV8825", "Azimuth · rating verification pending"],
@@ -222,16 +237,12 @@ function selectWorkspace(id: string) {
       else el.removeAttribute("aria-current");
     });
   const label =
-    id === "layout"
-      ? "PCB layout"
-      : id === "bom"
-        ? "BOM"
-        : workspaceViews.find((view) => view[0] === id)![1];
+    id === "bom" ? "BOM" : workspaceViews.find((view) => view[0] === id)![1];
   $("#document-title").textContent = label;
   if (tab === "electronics") $("#crumb").textContent = label.toUpperCase();
   const button = $("#download-schematic");
-  button.hidden = !["block", "circuit", "wiring", "layout"].includes(id);
-  button.innerHTML = `${icon("download")} Download ${id === "block" ? "block diagram" : id === "circuit" ? "schematic" : id === "wiring" ? "wiring diagram" : "panel layout"}`;
+  button.hidden = !["block", "circuit", "wiring"].includes(id);
+  button.innerHTML = `${icon("download")} Download ${id === "block" ? "block diagram" : id === "circuit" ? "schematic" : "wiring diagram"}`;
   createIcons({ icons });
 }
 document.querySelectorAll<HTMLElement>("[data-workspace-link]").forEach(
@@ -300,6 +311,10 @@ let running = false,
   model: Model | null = null,
   last = performance.now(),
   lastVision = 0,
+  lastCapture = 0,
+  fpsWindow = 0,
+  capturedFrames = 0,
+  lastCompute = 0,
   det: Detection | null = null,
   latency = 0;
 let socket: WebSocket | null = null,
@@ -321,18 +336,12 @@ const session: {
 const chart: { x: number | null; y: number | null }[] = [];
 try {
   const saved = JSON.parse(
-    localStorage.getItem("kestrel-model-seven-v1") || "null",
+    localStorage.getItem("kestrel-model-target-v1") || "null",
   );
   if (
     saved?.version === 1 &&
-    saved.classes?.length === 7 &&
-    saved.classes.every(
-      (c: { weights: number[]; bias: number; label: string }, i: number) =>
-        c.label === objectLabels[i] &&
-        c.weights.length === 257 &&
-        c.weights.every(Number.isFinite) &&
-        Number.isFinite(c.bias),
-    ) &&
+    !saved.classes &&
+    objectLabels.includes(saved.targetLabel) &&
     saved.weights?.length === 257 &&
     saved.weights.every(Number.isFinite) &&
     Number.isFinite(saved.bias)
@@ -341,33 +350,90 @@ try {
 } catch (e) {
   toast(`Model cache could not be read: ${String(e)}`);
 }
+function targetReady() {
+  return (
+    !!model &&
+    model.targetLabel === $<HTMLSelectElement>("#learning-object").value
+  );
+}
 function updateModel() {
-  if (!model) return;
-  $("#model-state").textContent = "Trained · synthetic data only";
-  $("#sample-count").textContent = String(model.samples);
-  $("#model-accuracy").textContent = `${(model.accuracy * 100).toFixed(1)}%`;
-  $("#training-bar").style.width = "100%";
-  $("#train-model").innerHTML = icon("refresh-cw") + " Retrain model";
+  const target =
+    $<HTMLSelectElement>("#learning-object").selectedOptions[0].text;
+  const ready = targetReady();
+  $("#tracking-object-label").textContent = target;
+  document
+    .querySelectorAll<HTMLElement>(".drone-setting")
+    .forEach(
+      (el) =>
+        (el.hidden =
+          $<HTMLSelectElement>("#learning-object").value !== "drone"),
+    );
+  $("#diagram-target").textContent =
+    `Save ${target} only, with its weights. Replace the previous model; other object classes are not retained.`;
+  $("#model-state").textContent = ready
+    ? `Trained for ${target} only · synthetic data`
+    : `Train a model for ${target}`;
+  $<HTMLButtonElement>("#scan-object").disabled = !ready;
+  $("#scan-object").innerHTML = icon("scan-line") + ` Scan room for ${target}`;
+  $("#learning-next").textContent = ready
+    ? `Only ${target} is retained. Scan the room to find it; the other objects are ignored.`
+    : `Training will replace the previous model with ${target}-only recognition.`;
+  $("#sample-count").textContent = ready ? String(model!.samples) : "—";
+  $("#model-accuracy").textContent = ready
+    ? `${(model!.accuracy * 100).toFixed(1)}%`
+    : "—";
+  $("#training-bar").style.width = ready ? "100%" : "0%";
+  $("#target-validation").textContent =
+    ready &&
+    Number.isFinite(model?.targetRecall) &&
+    Number.isFinite(model?.falsePositiveRate)
+      ? `Held-out target recall: ${(model!.targetRecall! * 100).toFixed(1)}% · false positives on other shapes: ${(model!.falsePositiveRate! * 100).toFixed(1)}%.`
+      : "";
+  $("#train-model").innerHTML =
+    icon(ready ? "refresh-cw" : "sparkles") +
+    (ready ? ` Retrain ${target}` : ` Train ${target}`);
+  startLabel();
   createIcons({ icons });
+}
+if (model?.targetLabel) {
+  $<HTMLSelectElement>("#learning-object").value = model.targetLabel;
+  $<HTMLSelectElement>("#target-object").value = model.targetLabel;
 }
 updateModel();
 async function learn() {
   if (training) return;
   training = true;
-  const wasRunning = running;
+  model = null;
+  try {
+    localStorage.removeItem("kestrel-model-target-v1");
+  } catch (e) {
+    toast(`Old saved model could not be cleared: ${String(e)}`);
+  }
   running = false;
+  det = null;
+  controller.reset();
+  startLabel();
+  $("#scan-object").setAttribute("disabled", "");
+  $("#learning-object").setAttribute("disabled", "");
+  $("#target-object").setAttribute("disabled", "");
   $("#start").setAttribute("disabled", "");
   $("#train-model").setAttribute("disabled", "");
-  $("#model-state").textContent = "Rendering views and learning…";
+  $("#model-state").textContent =
+    `Learning to distinguish ${$<HTMLSelectElement>("#learning-object").selectedOptions[0].text}…`;
+  $("#learning-next").textContent =
+    "Rendering labelled views and training the classifier…";
   $("#status").innerHTML = '<span class="status-dot"></span>LEARNING';
   try {
     model = await lab.learn((p) => {
       $("#training-bar").style.width = `${p * 100}%`;
       $("#feed-caption").textContent =
         `Learning synthetic views · ${Math.round(p * 100)}%`;
-    });
+    }, $<HTMLSelectElement>("#learning-object").value);
     try {
-      localStorage.setItem("kestrel-model-seven-v1", JSON.stringify(model));
+      localStorage.setItem("kestrel-model-target-v1", JSON.stringify(model));
+      ["kestrel-model-seven-v1", "kestrel-model-seven-v2"].forEach((key) =>
+        localStorage.removeItem(key),
+      );
     } catch (e) {
       toast(`Model could not be saved: ${String(e)}`);
     }
@@ -377,40 +443,83 @@ async function learn() {
     toast(`Training failed: ${String(e)}`);
   } finally {
     training = false;
-    running = wasRunning;
+    $("#learning-object").removeAttribute("disabled");
+    $("#target-object").removeAttribute("disabled");
+    if (model) updateModel();
+    else
+      $("#learning-next").textContent =
+        "Training did not complete. Try training again.";
     $("#start").removeAttribute("disabled");
     $("#train-model").removeAttribute("disabled");
   }
 }
 $("#train-model").onclick = () => void learn();
-$("#target-object").onchange = () => {
+function selectTarget(value: string) {
+  $<HTMLSelectElement>("#target-object").value = value;
+  $<HTMLSelectElement>("#learning-object").value = value;
   det = null;
   controller.reset();
+  running = false;
+  $<HTMLInputElement>("#hide-target").checked = false;
+  startLabel();
   if (socket) {
     socket.close();
     socket = null;
-    toast(
-      "Seven-object selection uses the browser model. The external service currently detects drones only.",
-    );
+    toast("Object selection uses the browser classifier.");
   }
+  const label = value[0].toUpperCase() + value.slice(1);
+  $("#scan-object").innerHTML = icon("scan-line") + ` Scan room for ${label}`;
+  updateModel();
+  createIcons({ icons });
+}
+$("#target-object").onchange = () =>
+  selectTarget($<HTMLSelectElement>("#target-object").value);
+$("#learning-object").onchange = () =>
+  selectTarget($<HTMLSelectElement>("#learning-object").value);
+$("#scan-object").onclick = () => {
+  if (!targetReady() || training) return;
+  if (socket) {
+    socket.close();
+    socket = null;
+    pending = false;
+  }
+  controller.reset();
+  controller.pan = -160;
+  det = null;
+  lastVision = 0;
+  $<HTMLInputElement>("#manual").checked = false;
+  $<HTMLElement>(".manual-controls").hidden = true;
+  running = true;
+  startLabel();
+  showTab("lab");
 };
 $("#export-model").onclick = () =>
   model
     ? download("kestrel-synthetic-model.json", JSON.stringify(model, null, 2))
     : toast("Train the synthetic model first.");
 function startLabel() {
+  const target =
+    $<HTMLSelectElement>("#learning-object").selectedOptions[0].text;
   $("#start").innerHTML =
-    icon(running ? "pause" : "play") +
-    (running ? " Pause tracking" : " Start tracking");
+    icon(running ? "pause" : "scan-line") +
+    (running
+      ? " Pause patrol"
+      : targetReady()
+        ? ` Scan room for ${target}`
+        : " Set up recognition");
   createIcons({ icons });
 }
-$("#start").onclick = async () => {
-  if (!model && !socket) {
-    await learn();
-    if (!model) return;
+$("#start").onclick = () => {
+  if (running) {
+    running = false;
+    startLabel();
+    return;
   }
-  running = !running;
-  startLabel();
+  if (!targetReady()) {
+    showTab("model");
+    return;
+  }
+  $("#scan-object").click();
 };
 $("#reset").onclick = () => {
   running = false;
@@ -613,8 +722,7 @@ function updateCompute() {
       Number($<HTMLInputElement>("#compute-reserve").value) || 0,
     ),
     budget = Number($<HTMLSelectElement>("#compute-budget").value);
-  const weightCount =
-    model?.classes?.reduce((sum, c) => sum + c.weights.length + 1, 0) ?? 0;
+  const weightCount = model ? model.weights.length + 1 : 0;
   const value = estimateCompute(
     fps,
     ms,
@@ -646,7 +754,10 @@ function updateCompute() {
         : "No Raspberry Pi telemetry connection. Values are estimates.";
 }
 function loop(now: number) {
-  updateCompute();
+  if (now - lastCompute >= 250) {
+    updateCompute();
+    lastCompute = now;
+  }
   requestAnimationFrame(loop);
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
@@ -657,18 +768,34 @@ function loop(now: number) {
       lab.flightTime + dt * Number($<HTMLInputElement>("#speed").value),
       $<HTMLSelectElement>("#path").value,
     );
-  lab.drone.visible = !$<HTMLInputElement>("#hide-drone").checked;
+  lab.objects.forEach((object, i) => {
+    object.visible =
+      objectLabels[i] !== $<HTMLSelectElement>("#target-object").value ||
+      !$<HTMLInputElement>("#hide-target").checked;
+  });
   lab.occluder.visible = $<HTMLInputElement>("#obstacle").checked;
   lab.light.intensity = 2 * Number($<HTMLInputElement>("#light").value);
   if (manual) {
     controller.pan = Number($<HTMLInputElement>("#manual-pan").value);
     controller.tilt = Number($<HTMLInputElement>("#manual-tilt").value);
   }
+  // Preview runs independently of the 10 Hz recognition/control loop.
+  if (now - lastCapture >= (tab === "lab" ? 1000 / 60 - 1 : 100)) {
+    lastCapture = now;
+    lab.orient(controller.pan, controller.tilt);
+    lab.capture();
+    drawFeed();
+    capturedFrames++;
+    if (now - fpsWindow >= 1000) {
+      $("#camera-fps").textContent =
+        `${Math.round((capturedFrames * 1000) / (now - fpsWindow))} FPS · target 60`;
+      capturedFrames = 0;
+      fpsWindow = now;
+    }
+  }
   if (now - lastVision >= 100) {
     const vdt = Math.min((now - lastVision) / 1000, 0.15);
     lastVision = now;
-    lab.orient(controller.pan, controller.tilt);
-    lab.capture();
     if (socket?.readyState === WebSocket.OPEN && running) {
       if (!pending) {
         frameCtx.putImageData(lab.image, 0, 0);
@@ -700,6 +827,10 @@ function loop(now: number) {
           : null;
       latency = performance.now() - before;
     }
+    controller.fastRecovery =
+      $<HTMLSelectElement>("#target-object").value === "drone";
+    const previousPan = controller.pan,
+      previousPitch = controller.tilt;
     controller.update(det, vdt, running, manual);
     const ex = det ? det.box[0] + det.box[2] / 2 - 0.5 : null,
       ey = det ? det.box[1] + det.box[3] / 2 - 0.5 : null;
@@ -718,7 +849,48 @@ function loop(now: number) {
       });
       if (session.length > 36000) session.shift();
     }
-    drawFeed();
+    const networkInput = det
+      ? features(maskImage(lab.image), lab.image.width, lab.image.height, [
+          Math.round(det.box[0] * lab.image.width),
+          Math.round(det.box[1] * lab.image.height),
+          Math.round(det.box[2] * lab.image.width),
+          Math.round(det.box[3] * lab.image.height),
+        ])
+      : null;
+    drawNetwork(
+      $<HTMLCanvasElement>("#network-canvas"),
+      model,
+      networkInput,
+      running && det ? det.confidence : null,
+      {
+        pan: controller.pan,
+        pitch: controller.tilt,
+        azimuthRate: (controller.pan - previousPan) / Math.max(vdt, 0.001),
+        pitchRate: (controller.tilt - previousPitch) / Math.max(vdt, 0.001),
+        errorX: ex,
+        errorY: ey,
+        mode: controller.mode,
+      },
+    );
+    const turn =
+      Math.abs(controller.pan - previousPan) < 0.02
+        ? "hold azimuth"
+        : controller.pan > previousPan
+          ? "turn right"
+          : "turn left";
+    const pitchAction =
+      Math.abs(controller.tilt - previousPitch) < 0.02
+        ? "hold pitch"
+        : controller.tilt > previousPitch
+          ? "tilt up"
+          : "tilt down";
+    $("#network-status").textContent = !model
+      ? "Train an object in Recognition to begin."
+      : networkInput
+        ? `Matched ${model.targetLabel} · ${turn} · ${pitchAction}`
+        : running
+          ? `Looking for ${model.targetLabel} · ${controller.fastSearching ? "rapid sweep" : controller.reacquiring ? "searching near the last position" : "patrolling the room"}`
+          : `Ready to find ${model.targetLabel} · start a room scan`;
     drawChart();
     $("#status").innerHTML =
       `<span class="status-dot ${running ? "on" : ""}"></span>${running ? controller.mode : "STANDBY"}`;
@@ -729,7 +901,7 @@ function loop(now: number) {
           ? "Manual steering enabled"
           : controller.mode === "LOST"
             ? "Target lost · preparing to scan"
-            : `Scanning for ${$<HTMLSelectElement>("#target-object").value}`
+            : `${controller.fastSearching ? "Rapid sweep to reacquire" : controller.reacquiring ? "Searching near last tracked position for" : "Patrolling room for"} ${$<HTMLSelectElement>("#target-object").value}`
       : "Camera ready · awaiting start";
     $("#pan-value").innerHTML = `${controller.pan.toFixed(1)}<small>°</small>`;
     $("#tilt-value").innerHTML =
