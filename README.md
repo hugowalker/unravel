@@ -26,8 +26,8 @@ The static build is in `dist`. It can run on any static web host; the default de
 
 ## Explore
 
-- **Flight laboratory:** orbitable 3D room, simulated camera feed, pan/tilt telemetry, centering-error chart, hover/patrol/figure-eight paths, occlusion, lighting, target visibility, and manual steering.
-- **Electronics:** selectable system schematic, component inspector, proposed BCM/physical-pin table, power rails, and downloadable SVG.
+- **Flight laboratory:** orbitable 3D room, simulated camera feed, pan/tilt telemetry, centering-error chart and detection-confidence meter, hover/patrol/figure-eight paths, occlusion, lighting, target visibility, and manual steering.
+- **Workspace:** block diagram, carrier interface schematic, point-to-point wiring, conceptual panel layout, BOM and connection schedules, and test evidence. Hardware drawings remain proposed.
 - **Recognition model:** live synthetic training, model export, and optional connection to a trained local YOLO detector.
 - **Project notebook:** implementation boundaries, hardware baseline, session measurements, and a downloadable technical dossier.
 

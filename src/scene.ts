@@ -175,7 +175,7 @@ export class LabScene {
     this.mount.add(pillar);
     const headBody = new THREE.Mesh(
       new THREE.BoxGeometry(0.4, 0.26, 0.3),
-      mat(0xb5ee79),
+      mat(0xff9955),
     );
     this.head.add(headBody);
     this.head.position.y = 1.25;

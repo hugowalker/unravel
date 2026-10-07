@@ -43,3 +43,9 @@ The 0.5x flight-speed setting scales scene time. Exported `time` is simulated ti
 - Long-duration reliability, multiple-target identity persistence and flying-drone performance.
 
 The model and hardware boundaries are visible in the app. Physical motor actuation is not implemented or implied.
+
+## Workspace and interface checks — 7 October 2026
+
+The production build, TypeScript checks and eight control/classifier tests passed. The Workspace tab exposes block, circuit, wiring, conceptual panel layout, BOM/schedules and test evidence. All six panels were opened in the browser; one panel is exposed at a time. The point-to-point wiring SVG downloaded successfully. The schematic view had no page overflow at the requested 390 × 844 viewport.
+
+The confidence meter showed a live detector score while tracking and reset to no detection when the drone was hidden. The black/grey/orange interface and orange K favicon were included in the build. Updated screenshots are in docs/images/flight-lab.jpg and docs/images/workspace.jpg. These checks add no physical hardware validation.
