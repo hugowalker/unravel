@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+data/
+runs/
+models/*.pt
+models/*_ncnn_model/
+*.log
+.sites-runtime/
+work/
