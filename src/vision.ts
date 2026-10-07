@@ -7,6 +7,7 @@ export type Model = {
   accuracy: number;
   samples: number;
   trainedAt: string;
+  classes?: { label: string; weights: number[]; bias: number }[];
 };
 const sigmoid = (x: number) =>
   1 / (1 + Math.exp(-Math.max(-30, Math.min(30, x))));
@@ -115,6 +116,7 @@ export function detect(
   image: ImageData,
   model: Model,
   threshold = 0.65,
+  targetLabel = "drone",
 ): Detection | null {
   const { width: w, height: h } = image;
   const mask = maskImage(image);
@@ -174,10 +176,103 @@ export function detect(
     }
     const bw = x1 - x0 + 1,
       bh = y1 - y0 + 1;
-    if (q.length < 12 || bw < 6 || bh < 3) continue;
-    const confidence = score(model, features(mask, w, h, [x0, y0, bw, bh]));
+    if (q.length < 12 || bw < 10 || bh < 8) continue;
+    if (targetLabel === "drone" && bw / bh < 1.1) continue;
+    const vector = features(mask, w, h, [x0, y0, bw, bh]);
+    const prediction = model.classes
+      ? classify(model, vector)
+      : { label: "drone", confidence: score(model, vector) };
+    if (prediction.label !== targetLabel) continue;
+    const confidence = prediction.confidence;
     if (confidence >= threshold && (!best || confidence > best.confidence))
       best = { box: [x0 / w, y0 / h, bw / w, bh / h], confidence };
   }
   return best;
+}
+
+export const objectLabels = [
+  "drone",
+  "cube",
+  "sphere",
+  "cylinder",
+  "cone",
+  "torus",
+  "pyramid",
+] as const;
+export function classify(model: Model, x: number[]) {
+  if (!model.classes?.length)
+    throw new Error("A multiclass model is required.");
+  const logits = model.classes.map((c) =>
+    c.weights.reduce((sum, w, i) => sum + w * x[i], c.bias),
+  );
+  const max = Math.max(...logits),
+    values = logits.map((z) => Math.exp(z - max)),
+    total = values.reduce((a, b) => a + b, 0);
+  const index = logits.indexOf(max);
+  return {
+    label: model.classes[index].label,
+    confidence: values[index] / total,
+  };
+}
+export async function trainObjects(
+  samples: { x: number[]; y: number }[],
+  validation: { x: number[]; y: number }[],
+  progress: (p: number) => void,
+): Promise<Model> {
+  if (
+    !samples.length ||
+    !validation.length ||
+    objectLabels.some((_, i) => !samples.some((s) => s.y === i))
+  )
+    throw new Error(
+      "Every object class needs training examples and a validation set.",
+    );
+  const size = FEATURE_SIZE ** 2 + 1,
+    classes = objectLabels.map((label) => ({
+      label,
+      weights: new Array<number>(size).fill(0),
+      bias: 0,
+    }));
+  for (let epoch = 0; epoch < 160; epoch++) {
+    const gradients = classes.map(() => new Float64Array(size)),
+      biases = new Float64Array(classes.length);
+    for (const sample of samples) {
+      const logits = classes.map((c) =>
+        c.weights.reduce((sum, w, j) => sum + w * sample.x[j], c.bias),
+      );
+      const max = Math.max(...logits),
+        values = logits.map((z) => Math.exp(z - max)),
+        total = values.reduce((a, b) => a + b, 0);
+      for (let k = 0; k < classes.length; k++) {
+        const error = values[k] / total - (sample.y === k ? 1 : 0);
+        biases[k] += error;
+        for (let j = 0; j < size; j++) gradients[k][j] += error * sample.x[j];
+      }
+    }
+    const lr = 0.45 / (1 + epoch * 0.005);
+    classes.forEach((c, k) => {
+      c.bias -= (lr * biases[k]) / samples.length;
+      for (let j = 0; j < size; j++)
+        c.weights[j] -=
+          lr * (gradients[k][j] / samples.length + 0.001 * c.weights[j]);
+    });
+    if (epoch % 8 === 0) {
+      progress(epoch / 160);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+  const model: Model = {
+    version: 1,
+    weights: classes[0].weights,
+    bias: classes[0].bias,
+    classes,
+    accuracy: 0,
+    samples: samples.length,
+    trainedAt: new Date().toISOString(),
+  };
+  model.accuracy =
+    validation.filter((s) => classify(model, s.x).label === objectLabels[s.y])
+      .length / validation.length;
+  progress(1);
+  return model;
 }

@@ -1,4 +1,11 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600;700&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap");
+@font-face {
+  font-family: "Michroma";
+  src: url("/fonts/Michroma-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
   font-family: "IBM Plex Sans", sans-serif;
   color: #e2e2e2;
@@ -62,7 +69,7 @@ svg.lucide {
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 206px;
+  width: 250px;
   padding: 34px 22px 22px;
   background: #161616;
   border-right: 1px solid var(--border);
@@ -74,8 +81,8 @@ svg.lucide {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 29px;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 22px;
   letter-spacing: -1.4px;
   font-weight: 600;
 }
@@ -124,7 +131,7 @@ nav button {
 nav button span {
   margin-left: auto;
   color: #676767;
-  font: 10px monospace;
+  font: 10px sans-serif;
 }
 nav button.active {
   color: var(--green);
@@ -171,14 +178,14 @@ nav button:hover {
   width: 13px;
 }
 .version {
-  font: 9px monospace;
+  font: 9px sans-serif;
   color: #676767;
   letter-spacing: 0.8px;
   display: block;
   margin-top: 24px;
 }
 main {
-  margin-left: 206px;
+  margin-left: 250px;
 }
 header {
   height: 76px;
@@ -249,8 +256,8 @@ header {
   margin-bottom: 10px;
 }
 h1 {
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: clamp(42px, 4.5vw, 64px);
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: clamp(24px, 3vw, 38px);
   letter-spacing: -0.5px;
   font-weight: 500;
   margin: 0 0 9px;
@@ -308,7 +315,7 @@ p {
   padding: 10px 16px;
   background: #171717;
   margin-bottom: 18px;
-  font: 9px monospace;
+  font: 9px sans-serif;
   letter-spacing: 0.5px;
   color: #7e7e7e;
   flex-wrap: wrap;
@@ -389,7 +396,7 @@ p {
   color: #929292;
 }
 .mini {
-  font: 9px monospace;
+  font: 9px sans-serif;
   letter-spacing: 0.5px;
   color: #7d7d7d;
 }
@@ -415,7 +422,7 @@ p {
   z-index: 1;
   top: 18px;
   left: 18px;
-  font: 9px monospace;
+  font: 9px sans-serif;
   letter-spacing: 1px;
   color: #949494;
   pointer-events: none;
@@ -484,7 +491,7 @@ input[type="checkbox"] {
   position: absolute;
   left: 15px;
   top: 14px;
-  font: 9px monospace;
+  font: 9px sans-serif;
   color: #bebebe;
   letter-spacing: 1px;
   background: #161616a8;
@@ -501,7 +508,7 @@ input[type="checkbox"] {
   right: 0;
   text-align: center;
   color: #a8a8a8;
-  font: 9px monospace;
+  font: 9px sans-serif;
   letter-spacing: 0.3px;
   text-shadow: 0 1px 4px #000;
 }
@@ -539,14 +546,14 @@ input[type="checkbox"] {
   gap: 32px;
 }
 .telemetry > div > span {
-  font: 9px monospace;
+  font: 9px sans-serif;
   color: #8e8e8e;
   letter-spacing: 1.3px;
 }
 .telemetry strong {
   display: block;
   font:
-    31px "Barlow Condensed",
+    31px "IBM Plex Sans",
     sans-serif;
   letter-spacing: -1px;
   margin: 5px 0 13px;
@@ -599,7 +606,7 @@ input[type="checkbox"] {
 .control-grid output {
   float: right;
   color: #dadada;
-  font: 10px monospace;
+  font: 10px sans-serif;
 }
 select {
   display: block;
@@ -649,7 +656,7 @@ input[type="range"] {
   gap: 15px;
   padding: 6px 17px 14px;
   color: #9e9e9e;
-  font: 9px monospace;
+  font: 9px sans-serif;
 }
 .chart-legend span {
   display: flex;
@@ -683,7 +690,7 @@ input[type="range"] {
   display: flex;
   align-items: center;
   gap: 7px;
-  font: 9px monospace;
+  font: 9px sans-serif;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
@@ -706,7 +713,7 @@ footer {
   display: flex;
   justify-content: space-between;
   color: #686868;
-  font: 9px monospace;
+  font: 9px sans-serif;
   letter-spacing: 0.6px;
 }
 footer b {
@@ -786,7 +793,7 @@ footer b {
   fill: #a2a2a2;
 }
 .wire-label {
-  font: 9px monospace;
+  font: 9px sans-serif;
   fill: #878787;
 }
 .schematic-caption {
@@ -848,13 +855,13 @@ footer b {
 }
 .inspector h2 {
   font:
-    500 24px "Barlow Condensed",
+    500 24px "IBM Plex Sans",
     sans-serif;
   margin: 0 0 12px;
 }
 .part-status {
   display: inline-block;
-  font: 10px monospace;
+  font: 10px sans-serif;
   color: #d8bd8c;
   background: #322c21;
   padding: 7px 9px;
@@ -877,7 +884,7 @@ footer b {
   color: #858585;
 }
 .inspector-pins p {
-  font: 11px/1.9 monospace;
+  font: 11px/1.9 sans-serif;
   color: #bfbfbf;
   margin-top: 10px;
 }
@@ -908,7 +915,7 @@ td {
 }
 td:first-child,
 td:nth-child(2) {
-  font-family: monospace;
+  font-family: sans-serif;
   color: #dddddd;
 }
 td:last-child {
@@ -923,7 +930,7 @@ td:last-child {
 }
 .note-number {
   color: #ff9955;
-  font: 10px monospace;
+  font: 10px sans-serif;
   letter-spacing: 1px;
 }
 .note-grid h3 {
@@ -943,13 +950,13 @@ td:last-child {
   padding: 28px;
 }
 .model-state {
-  font: 10px monospace;
+  font: 10px sans-serif;
   letter-spacing: 0.7px;
   color: #ffb17b;
 }
 .model-body h2 {
   font:
-    400 34px/1.2 "Barlow Condensed",
+    400 34px/1.2 "IBM Plex Sans",
     sans-serif;
   letter-spacing: -1px;
   margin: 20px 0;
@@ -976,14 +983,14 @@ td:last-child {
   margin: 22px 0 27px;
 }
 .training-metrics span {
-  font: 9px monospace;
+  font: 9px sans-serif;
   color: #8c8c8c;
   display: block;
   margin-bottom: 10px;
 }
 .training-metrics b {
   font:
-    24px "Barlow Condensed",
+    24px "IBM Plex Sans",
     sans-serif;
 }
 .small-note {
@@ -1012,7 +1019,7 @@ td:last-child {
   border: 1px solid #765136;
   border-radius: 50%;
   color: #ffb17b;
-  font: 11px monospace;
+  font: 11px sans-serif;
 }
 .pipeline h3 {
   font-size: 16px;
@@ -1056,10 +1063,10 @@ td:last-child {
   color: #c8c8c8;
   border-radius: 4px;
   padding: 10px;
-  font: 11px monospace;
+  font: 11px sans-serif;
 }
 .backend-connect > span {
-  font: 10px monospace;
+  font: 10px sans-serif;
   color: #9a9a9a;
 }
 .notebook-grid {
@@ -1072,7 +1079,7 @@ td:last-child {
 }
 .notebook-main h2 {
   font:
-    400 35px/1.2 "Barlow Condensed",
+    400 35px/1.2 "IBM Plex Sans",
     sans-serif;
   margin: 18px 0 22px;
   letter-spacing: -1px;
@@ -1303,7 +1310,7 @@ td:last-child {
     padding: 22px;
   }
   .model-body h2 {
-    font-size: 29px;
+    font-size: 22px;
   }
   .training-metrics {
     flex-wrap: wrap;
@@ -1315,7 +1322,7 @@ td:last-child {
     padding: 24px;
   }
   .notebook-main h2 {
-    font-size: 29px;
+    font-size: 22px;
   }
 }
 @media (max-width: 950px) {
@@ -1632,7 +1639,7 @@ td:last-child {
 }
 .document-heading h2 {
   font:
-    500 30px "Barlow Condensed",
+    500 30px "IBM Plex Sans",
     sans-serif;
   margin: 0 0 8px;
 }
@@ -1717,4 +1724,180 @@ td:last-child {
 .confidence-panel p {
   font-size: 11px;
   margin-top: 10px;
+}
+
+.sidebar {
+  overflow-y: auto;
+}
+.workspace-tabs {
+  display: none;
+}
+nav button.selected {
+  color: var(--green);
+  background: #28211c;
+}
+.compute-panel {
+  margin-top: 20px;
+}
+.compute-body {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) minmax(0, 1.5fr);
+  gap: 28px;
+  padding: 24px;
+}
+.compute-settings {
+  display: grid;
+  gap: 17px;
+}
+.compute-settings label {
+  display: block;
+  color: #aaa;
+  font-size: 12px;
+}
+.compute-settings input[type="number"] {
+  width: 90px;
+  background: #222;
+  color: #ddd;
+  border: 1px solid #555;
+  padding: 6px;
+  margin: 8px 5px 0 0;
+}
+.compute-settings output {
+  float: right;
+  color: var(--green);
+}
+.compute-stage {
+  padding: 13px 0;
+  color: var(--green);
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.compute-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 25px 0;
+}
+.compute-metrics span,
+.compute-metrics small {
+  display: block;
+  font-size: 11px;
+  color: #aaa;
+}
+.compute-metrics strong {
+  display: block;
+  font:
+    500 25px "IBM Plex Sans",
+    sans-serif;
+  margin: 12px 0;
+}
+.compute-metrics meter {
+  width: 100%;
+  accent-color: var(--green);
+}
+.compute-readout p,
+.compute-readout details {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.compute-readout details {
+  margin-top: 20px;
+  color: #bbb;
+}
+.compute-readout summary {
+  cursor: pointer;
+  color: var(--green);
+}
+.compute-readout details p {
+  margin-top: 10px;
+}
+.compute-readout a {
+  color: var(--green);
+  text-decoration: underline;
+}
+.recognition-explainer {
+  margin-top: 20px;
+  padding: 0 26px 20px;
+}
+.recognition-explainer ol {
+  padding-left: 20px;
+  margin: 0;
+}
+.recognition-explainer li {
+  margin: 20px 0;
+  padding-left: 10px;
+  max-width: 85ch;
+}
+.recognition-explainer h3 {
+  font-size: 16px;
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+@media (max-width: 950px) {
+  .compute-body {
+    grid-template-columns: 1fr;
+  }
+  .control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .compute-body {
+    padding: 18px;
+  }
+  .compute-metrics {
+    gap: 12px;
+  }
+  .compute-metrics strong {
+    font-size: 22px;
+  }
+  .recognition-explainer {
+    padding-inline: 18px;
+  }
+}
+
+svg text {
+  font-family: "IBM Plex Sans", Arial, sans-serif;
+}
+
+:root {
+  font-size: 13px;
+}
+nav > button {
+  font-size: 13px;
+}
+.model-body h2,
+.notebook-main h2 {
+  font-size: 26px;
+  line-height: 1.5;
+}
+@media (max-width: 950px) {
+  nav > button {
+    font-size: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    overflow: hidden;
+    gap: 14px;
+  }
+  .brand {
+    flex-shrink: 0;
+  }
+  nav {
+    min-width: 0;
+    overflow-x: auto;
+    flex: 1;
+  }
+  nav > button {
+    flex-shrink: 0;
+  }
+}
+
+h1,
+h2,
+h3,
+.brand {
+  font-family: "Michroma", sans-serif !important;
 }

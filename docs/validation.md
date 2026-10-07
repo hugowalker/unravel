@@ -49,3 +49,11 @@ The model and hardware boundaries are visible in the app. Physical motor actuati
 The production build, TypeScript checks and eight control/classifier tests passed. The Workspace tab exposes block, circuit, wiring, conceptual panel layout, BOM/schedules and test evidence. All six panels were opened in the browser; one panel is exposed at a time. The point-to-point wiring SVG downloaded successfully. The schematic view had no page overflow at the requested 390 × 844 viewport.
 
 The confidence meter showed a live detector score while tracking and reset to no detection when the drone was hidden. The black/grey/orange interface and orange K favicon were included in the build. Updated screenshots are in docs/images/flight-lab.jpg and docs/images/workspace.jpg. These checks add no physical hardware validation.
+
+## Seven-class laboratory and typography — 7 October 2026
+
+The production build, TypeScript checks and ten control/classifier/resource-estimate tests passed. The circular room contains a drone, cube, sphere, cylinder, cone, torus and pyramid. One browser training run reported 85.1% held-out classification accuracy on 168 synthetic crops from the same procedural assets, with 672 training crops. This is not a real-camera accuracy measurement. Drone tracking displayed an active confidence score in the browser; target confusion remains a limitation of silhouette classification.
+
+The six engineering documents are direct main-navigation items; the Workspace parent button was removed. Schematic navigation updates both its page heading and breadcrumb. Michroma is bundled under the SIL Open Font License for headings, and IBM Plex Sans is restored for body text and navigation. Laboratory and Recognition views had no page overflow at the requested 390 x 844 viewport; the final schematic also had equal page scroll/client widths (375 CSS pixels). The compact navigation scrolls within its own container.
+
+The Raspberry Pi panel displays assumption-based RAM, power and throughput estimates, including 768.5 MiB reserved/model/frame memory, 2 W assumed idle power and 4.4 W under the default active workload. These are formula outputs, not board telemetry or measured benchmarks. Updated screenshots: docs/images/flight-lab-current.png and docs/images/workspace-current.png. The downloadable 6 October PDF remains an archived dossier.

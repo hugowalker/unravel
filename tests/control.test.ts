@@ -83,3 +83,33 @@ test("reset restores search direction", () => {
   c.update(null, 0.1, true, false);
   assert.ok(c.pan > 0);
 });
+
+import { objectLabels, trainObjects, classify } from "../src/vision";
+import { estimateCompute } from "../src/compute";
+test("seven-class model learns distinct labels without target coordinates", async () => {
+  const rows = objectLabels.map((_, y) => {
+    const x = new Array(257).fill(0);
+    x[y] = 1;
+    return { x, y };
+  });
+  const m = await trainObjects(rows, rows, () => {});
+  assert.equal(m.classes?.length, 7);
+  assert.equal(m.accuracy, 1);
+  rows.forEach((row) =>
+    assert.equal(classify(m, row.x).label, objectLabels[row.y]),
+  );
+  await assert.rejects(
+    () => trainObjects(rows.slice(1), rows, () => {}),
+    /Every object class/,
+  );
+});
+test("resource estimates cap throughput and power under overload", () => {
+  const busy = estimateCompute(30, 100, 768, 1806, 10, true);
+  assert.equal(busy.throughput, 10);
+  assert.equal(busy.powerW, 10);
+  assert.equal(busy.overloaded, true);
+  assert.ok(busy.memoryMiB > 768);
+  const idle = estimateCompute(30, 100, 768, 1806, 10, false);
+  assert.equal(idle.throughput, 0);
+  assert.equal(idle.powerW, 2);
+});

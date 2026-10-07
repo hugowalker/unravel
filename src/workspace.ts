@@ -14,7 +14,7 @@ const table = (head: string[], rows: string[][]) =>
 const sheet = (title: string, description: string, body: string) =>
   `<article class="panel document-sheet"><div class="document-heading"><h2>${title}</h2><p>${description}</p></div>${body}</article>`;
 const svg = (label: string, content: string) =>
-  `<div class="drawing-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 660" role="img" aria-label="${label}"><style>text{font-family:Arial,sans-serif;fill:#dedede;font-size:15px}.small{font-size:12px;fill:#aaa}.title{font-size:21px;font-weight:bold}.line{stroke:#ff9955;stroke-width:2;fill:none}.symbol{stroke:#ddd;stroke-width:2;fill:none}.box{fill:#222;stroke:#777;stroke-width:1.5}.node{fill:#ff9955}</style><rect width="1100" height="660" fill="#171717"/>${content}</svg></div>`;
+  `<div class="drawing-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 660" role="img" aria-label="${label}"><style>text{font-family:"IBM Plex Sans",Arial,sans-serif;fill:#dedede;font-size:15px}.small{font-size:12px;fill:#aaa}.title{font-size:21px;font-weight:bold}.line{stroke:#ff9955;stroke-width:2;fill:none}.symbol{stroke:#ddd;stroke-width:2;fill:none}.box{fill:#222;stroke:#777;stroke-width:1.5}.node{fill:#ff9955}</style><rect width="1100" height="660" fill="#171717"/>${content}</svg></div>`;
 
 export const wiringDrawing = svg(
   "Point-to-point proposed Pi and motor wiring map",
@@ -50,7 +50,7 @@ export const circuitDrawing = svg(
 <path class="symbol" d="M410 460H380V488M365 488H395M369 495H391M375 502H385"/><text class="small" x="425" y="464">GND</text>
 <path class="line" d="M640 220H940M760 220V290"/><circle class="node" cx="760" cy="220" r="4"/><text x="805" y="201">VMOT — candidate 12 V</text><text class="small" x="805" y="243">Fused supply + physical disconnect</text><path class="symbol" d="M744 290H776M744 300H776M760 300V340M745 340H775M749 347H771M755 354H765"/><text x="779" y="289">C1 ≥ 47 µF</text><text class="small" x="779" y="311">+ at VMOT; rating TBD</text>
 <path class="line" d="M640 265H710M640 305H710M640 390H710M640 430H710"/><text x="660" y="258">A1</text><text x="660" y="298">A2</text><text x="660" y="383">B1</text><text x="660" y="423">B2</text>
-<text x="825" y="395">M1 — FITO278</text><text class="small" x="825" y="420">A1/A2: verified coil A</text><text class="small" x="825" y="443">B1/B2: verified coil B</text><text class="small" x="825" y="466">No wire colours assigned</text>
+<text x="825" y="395">M1 — FITO278</text><text class="small" x="825" y="420">A1/A2: identify coil A</text><text class="small" x="825" y="443">B1/B2: identify coil B</text><text class="small" x="825" y="466">No wire colours assigned</text>
 <rect class="box" x="410" y="535" width="230" height="90"/><text x="435" y="559">M2 — MG90S</text><path class="line" d="M110 575H410M110 600H410"/><text x="110" y="565">BCM18 / PWM</text><text x="110" y="621">External 4.8–5.0 V</text><path class="symbol" d="M640 600H720V620M705 620H735M709 627H731M715 634H725"/>
 <text class="small" x="35" y="650">All GND symbols share one reference. Camera and home-switch circuits remain unassigned.</text>`,
 );
@@ -118,8 +118,8 @@ export function workspaceExtraPanels() {
         ],
         [
           "Control / classifier tests",
-          "8 passed, 7 October 2026",
-          "Acquisition, bounds, empty data, reset",
+          "10 passed, 7 October 2026",
+          "Control bounds, seven-class learning, resource estimates",
         ],
         [
           "Python backend tests",

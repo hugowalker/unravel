@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { bounds, features, maskImage, train, type Model } from "./vision";
+import {
+  bounds,
+  features,
+  maskImage,
+  trainObjects,
+  type Model,
+} from "./vision";
 const rad = THREE.MathUtils.degToRad;
 const mat = (color: number, emissive = 0) =>
   new THREE.MeshStandardMaterial({
@@ -67,6 +73,16 @@ export function makeDrone() {
   drone.userData.props = props;
   return drone;
 }
+function makeLearningObjects() {
+  return [
+    new THREE.BoxGeometry(0.75, 0.75, 0.75),
+    new THREE.SphereGeometry(0.45, 24, 20),
+    new THREE.CylinderGeometry(0.3, 0.3, 0.85, 24),
+    new THREE.ConeGeometry(0.45, 0.9, 32),
+    new THREE.TorusGeometry(0.35, 0.12, 12, 32),
+    new THREE.ConeGeometry(0.5, 0.85, 4),
+  ].map((geometry) => new THREE.Mesh(geometry, mat(0xe0e3de)));
+}
 export class LabScene {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
@@ -83,6 +99,7 @@ export class LabScene {
   light: THREE.DirectionalLight;
   frustum: THREE.CameraHelper;
   flightTime = 0;
+  objects: THREE.Object3D[] = [];
   constructor(public container: HTMLElement) {
     this.target.texture.colorSpace = THREE.SRGBColorSpace;
     this.renderer = new THREE.WebGLRenderer({
@@ -106,61 +123,96 @@ export class LabScene {
     this.light.position.set(3, 8, 5);
     this.scene.add(this.light);
     const floor = new THREE.Mesh(
-      new THREE.BoxGeometry(12, 0.12, 10),
-      mat(0x151b22),
+      new THREE.CylinderGeometry(6.5, 6.5, 0.12, 96),
+      mat(0x191919),
     );
     floor.position.y = -0.08;
     this.scene.add(floor);
-    const grid = new THREE.GridHelper(12, 24, 0x34424d, 0x242e38);
-    grid.position.y = 0.001;
-    this.scene.add(grid);
-    // Dark room furnishings keep the synthetic contrast proposal stage explicit and inspectable.
-    const wall = new THREE.Mesh(
-      new THREE.BoxGeometry(12, 4, 0.12),
-      mat(0x151b23),
-    );
-    wall.position.set(0, 2, -5);
-    this.scene.add(wall);
-    const side = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 4, 10),
-      mat(0x11171d),
-    );
-    side.position.set(-6, 2, 0);
-    this.scene.add(side);
-    for (let i = 0; i < 5; i++) {
-      const beam = new THREE.Mesh(
-        new THREE.BoxGeometry(0.03, 3.7, 0.025),
-        mat(0x2f3c49),
+    const rings = new THREE.Group();
+    for (let r = 1; r <= 6; r++) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(
+        Array.from(
+          { length: 97 },
+          (_, i) =>
+            new THREE.Vector3(
+              Math.sin((i * Math.PI) / 48) * r,
+              0.001,
+              Math.cos((i * Math.PI) / 48) * r,
+            ),
+        ),
       );
-      beam.position.set(-5 + i * 2.5, 2, -4.91);
+      rings.add(
+        new THREE.Line(
+          geometry,
+          new THREE.LineBasicMaterial({ color: 0x393939 }),
+        ),
+      );
+    }
+    for (let i = 0; i < 24; i++) {
+      const angle = (i * Math.PI) / 12;
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0.001, 0),
+        new THREE.Vector3(Math.sin(angle) * 6.5, 0.001, Math.cos(angle) * 6.5),
+      ]);
+      rings.add(
+        new THREE.Line(
+          geometry,
+          new THREE.LineBasicMaterial({ color: 0x303030 }),
+        ),
+      );
+    }
+    this.scene.add(rings);
+    const wallMaterial = mat(0x202020);
+    wallMaterial.side = THREE.DoubleSide;
+    const wall = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        6.5,
+        6.5,
+        4,
+        96,
+        1,
+        true,
+        Math.PI / 2,
+        Math.PI,
+      ),
+      wallMaterial,
+    );
+    wall.position.y = 2;
+    this.scene.add(wall);
+    for (let i = 0; i <= 12; i++) {
+      const angle = Math.PI / 2 + (i * Math.PI) / 12;
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, 3.8, 8),
+        mat(0x454545),
+      );
+      beam.position.set(Math.sin(angle) * 6.4, 1.9, Math.cos(angle) * 6.4);
       this.scene.add(beam);
     }
-    for (const [x, z] of [
-      [-4, -3],
-      [4, -3],
-      [4, 2],
-    ]) {
-      const box = new THREE.Mesh(
-        new THREE.BoxGeometry(1.3, 1, 1),
-        mat(0x24303b),
+    const shapes = makeLearningObjects();
+    this.objects = [this.drone, ...shapes];
+    shapes.forEach((object, i) => {
+      const placements = [
+        [-3.8, -1.8],
+        [-2.8, 2.4],
+        [0.7, -4.7],
+        [3.9, -1.6],
+        [2.6, 2],
+        [1.4, 0],
+      ];
+      object.position.set(
+        placements[i][0],
+        1.7 + (i % 2) * 0.35,
+        placements[i][1],
       );
-      box.position.set(x, 0.5, z);
-      this.scene.add(box);
-    }
-    const bench = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 0.13, 1),
-      mat(0x26333c),
-    );
-    bench.position.set(-3, 1.05, -3);
-    this.scene.add(bench);
-    for (const x of [-4, -2]) {
-      const leg = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 1, 0.08),
-        mat(0x28323c),
+      object.rotation.y = i * 0.5;
+      this.scene.add(object);
+      const pedestal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.55, 1.2, 24),
+        mat(0x262626),
       );
-      leg.position.set(x, 0.5, -3);
-      this.scene.add(leg);
-    }
+      pedestal.position.set(object.position.x, 0.6, object.position.z);
+      this.scene.add(pedestal);
+    });
     const base = new THREE.Mesh(
       new THREE.CylinderGeometry(0.36, 0.44, 0.18, 32),
       mat(0x76838c),
@@ -277,18 +329,8 @@ export class LabScene {
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 20);
     camera.position.set(0, 0, 3.2);
     camera.lookAt(0, 0, 0);
-    const geometries = [
-      new THREE.BoxGeometry(0.8, 0.6, 0.4),
-      new THREE.SphereGeometry(0.4, 16, 12),
-      new THREE.CylinderGeometry(0.2, 0.3, 0.8, 12),
-      new THREE.TorusGeometry(0.35, 0.07, 8, 16),
-    ];
-    const negatives = geometries.map((g) => {
-      const mesh = new THREE.Mesh(g, mat(0xe0e3de));
-      mesh.visible = false;
-      scene.add(mesh);
-      return mesh;
-    });
+    const objects = [drone, ...makeLearningObjects()];
+    objects.slice(1).forEach((o) => scene.add(o));
     const target = new THREE.WebGLRenderTarget(96, 96);
     target.texture.colorSpace = THREE.SRGBColorSpace;
     const buf = new Uint8Array(96 * 96 * 4),
@@ -300,11 +342,10 @@ export class LabScene {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       return seed / 4294967296;
     };
-    for (let i = 0; i < 720; i++) {
-      const y = i % 2 === 0 ? 1 : 0;
-      drone.visible = !!y;
-      negatives.forEach((n) => (n.visible = false));
-      const obj = y ? drone : negatives[Math.floor(rand() * negatives.length)];
+    for (let i = 0; i < 840; i++) {
+      const y = i % 7;
+      objects.forEach((o) => (o.visible = false));
+      const obj = objects[y];
       obj.visible = true;
       obj.rotation.set(
         (rand() - 0.5) * 1.8,
@@ -327,15 +368,17 @@ export class LabScene {
         (i % 10 < 2 ? validation : training).push(sample);
       }
       if (i % 24 === 0) {
-        progress((i / 720) * 0.8);
+        progress((i / 840) * 0.6);
         this.renderer.setRenderTarget(null);
         await new Promise((r) => setTimeout(r, 0));
       }
     }
     this.renderer.setRenderTarget(null);
-    progress(0.85);
+    progress(0.6);
     await new Promise((r) => setTimeout(r, 10));
-    const model = train(training, validation);
+    const model = await trainObjects(training, validation, (p) =>
+      progress(0.6 + p * 0.4),
+    );
     target.dispose();
     scene.traverse((o) => {
       if (o instanceof THREE.Mesh) {
